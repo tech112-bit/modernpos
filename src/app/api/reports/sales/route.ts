@@ -105,15 +105,26 @@ export async function GET(request: NextRequest) {
       console.log(`API: First sale total after Number(): ${Number(sales[0].total)}`)
     }
     
-    // Group sales by date
+    // Group sales by date/time based on period
     const salesByDate = new Map<string, { total: number; count: number }>()
     
     sales.forEach(sale => {
-      const date = sale.created_at.toISOString().split('T')[0]
-      const existing = salesByDate.get(date) || { total: 0, count: 0 }
+      let dateKey: string
+      
+      if (period === 'today') {
+        // For today, group by hour
+        const hour = sale.created_at.getHours()
+        const hourStr = hour.toString().padStart(2, '0')
+        dateKey = `${sale.created_at.toISOString().split('T')[0]}T${hourStr}:00:00.000Z`
+      } else {
+        // For week/month, group by date
+        dateKey = sale.created_at.toISOString().split('T')[0]
+      }
+      
+      const existing = salesByDate.get(dateKey) || { total: 0, count: 0 }
       existing.total += Number(sale.total) // Convert Decimal to number
       existing.count += 1
-      salesByDate.set(date, existing)
+      salesByDate.set(dateKey, existing)
     })
     
     // Convert to array and sort by date
