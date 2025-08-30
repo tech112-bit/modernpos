@@ -167,9 +167,9 @@ export default function NewSalePage() {
 
     try {
       const saleData = {
-        customerId: selectedCustomer || undefined,
+        customer_id: selectedCustomer || undefined,
         items: cart.map(item => ({
-          productId: item.productId,
+          product_id: item.productId,
           quantity: item.quantity,
           price: item.price
         })),

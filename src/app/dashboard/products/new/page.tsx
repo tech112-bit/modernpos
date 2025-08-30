@@ -265,21 +265,21 @@ export default function NewProductPage() {
                 <label htmlFor="price" className="block text-sm font-medium text-gray-700">
                   Selling Price *
                 </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500 sm:text-sm">{getCurrencySymbol()}</span>
+                                  <div className="mt-1 relative rounded-md shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-gray-500 sm:text-sm">{getCurrencySymbol()}</span>
+                    </div>
+                    <input
+                      type="number"
+                      id="price"
+                      step="0.01"
+                      min="0"
+                      value={formatInputValue(formData.price)}
+                      onChange={(e) => handleInputChange('price', e.target.value)}
+                      required
+                      className="pl-12 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
                   </div>
-                  <input
-                    type="number"
-                    id="price"
-                    step="0.01"
-                    min="0"
-                    value={formatInputValue(formData.price)}
-                    onChange={(e) => handleInputChange('price', e.target.value)}
-                    required
-                    className="pl-7 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
                 <p className="mt-1 text-xs text-gray-500">
                   Enter price in {currentCurrency?.code} ({currentCurrency?.name})
                   {currentCurrency?.code !== 'MMK' && ` - Will be converted to MMK for storage`}
@@ -290,21 +290,21 @@ export default function NewProductPage() {
                 <label htmlFor="cost" className="block text-sm font-medium text-gray-700">
                   Cost Price *
                 </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500 sm:text-sm">{getCurrencySymbol()}</span>
+                                  <div className="mt-1 relative rounded-md shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-gray-500 sm:text-sm">{getCurrencySymbol()}</span>
+                    </div>
+                    <input
+                      type="number"
+                      id="cost"
+                      step="0.01"
+                      min="0"
+                      value={formatInputValue(formData.cost)}
+                      onChange={(e) => handleInputChange('cost', e.target.value)}
+                      required
+                      className="pl-12 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
                   </div>
-                  <input
-                    type="number"
-                    id="cost"
-                    step="0.01"
-                    min="0"
-                    value={formatInputValue(formData.cost)}
-                    onChange={(e) => handleInputChange('cost', e.target.value)}
-                    required
-                    className="pl-7 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
                 <p className="mt-1 text-xs text-gray-500">
                   Enter cost in {currentCurrency?.code} ({currentCurrency?.name})
                   {currentCurrency?.code !== 'MMK' && ` - Will be converted to MMK for storage`}
