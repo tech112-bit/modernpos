@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { useAuth } from '@/contexts/AuthContext'
+import CategoryImport from '@/components/CategoryImport'
 import {
   PlusIcon,
   PencilIcon,
@@ -193,6 +194,11 @@ export default function CategoriesPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Category Import Section */}
+      <div className="mb-6">
+        <CategoryImport />
       </div>
 
       {/* Error Message */}
