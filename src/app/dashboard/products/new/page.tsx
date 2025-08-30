@@ -73,7 +73,7 @@ export default function NewProductPage() {
         price: mmkPrice,
         cost: mmkCost,
         stock: parseInt(formData.stock),
-        categoryId: formData.category,
+        category_id: formData.category,
         csrfToken: csrfToken
       }
 

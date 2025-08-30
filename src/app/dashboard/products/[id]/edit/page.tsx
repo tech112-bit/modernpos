@@ -108,7 +108,7 @@ export default function EditProductPage() {
         price: mmkPrice,
         cost: mmkCost,
         stock: Number(product.stock),
-        categoryId: product.category,
+        category_id: product.category,
         csrfToken: csrfToken
       }
 

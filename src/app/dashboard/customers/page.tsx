@@ -24,7 +24,7 @@ interface Customer {
   address: string
   city: string
   state: string
-  zipCode: string
+  zip_code: string
   createdAt: string
   _count: {
     sales: number

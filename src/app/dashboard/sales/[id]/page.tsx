@@ -18,9 +18,9 @@ import {
 interface Sale {
   id: string
   total: number
-  paymentType: string
+  payment_type: string
   discount: number
-  createdAt: string
+  created_at: string
   user: {
     email: string
   }
@@ -191,12 +191,12 @@ export default function SaleDetailPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-500">Date & Time</label>
                 <p className="mt-1 text-sm text-gray-900">
-                  {formatRelativeTime(sale.createdAt)}
+                  {formatRelativeTime(sale.created_at)}
                 </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500">Payment Type</label>
-                <p className="mt-1 text-sm text-gray-900 capitalize">{sale.paymentType.toLowerCase()}</p>
+                <p className="mt-1 text-sm text-gray-900 capitalize">{sale.payment_type.toLowerCase()}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500">Processed By</label>
@@ -215,15 +215,15 @@ export default function SaleDetailPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-gray-500">Name</label>
-                  <p className="mt-1 text-sm text-gray-900">{sale.customer.name}</p>
+                  <p className="mt-1 text-sm text-gray-900">{sale.customers.name}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-500">Phone</label>
-                  <p className="mt-1 text-sm text-gray-900">{sale.customer.phone}</p>
+                  <p className="mt-1 text-sm text-gray-900">{sale.customers.phone}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-500">Email</label>
-                  <p className="mt-1 text-sm text-gray-900">{sale.customer.email}</p>
+                  <p className="mt-1 text-sm text-gray-900">{sale.customers.email}</p>
                 </div>
               </div>
             </div>
@@ -233,14 +233,14 @@ export default function SaleDetailPage() {
           <div className="bg-white shadow rounded-lg p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
               <ShoppingCartIcon className="h-5 w-5 mr-2" />
-              Items ({sale.items.length})
+                              Items ({sale.sale_items.length})
             </h3>
             <div className="space-y-3">
-              {sale.items.map((item, index) => (
+                              {sale.sale_items.map((item, index) => (
                 <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-b-0">
                   <div>
-                    <p className="font-medium text-gray-900">{item.product.name}</p>
-                    <p className="text-sm text-gray-500">SKU: {item.product.sku}</p>
+                    <p className="font-medium text-gray-900">{item.products.name}</p>
+                    <p className="text-sm text-gray-500">SKU: {item.products.sku}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-gray-500">{item.quantity} × ${item.price.toFixed(2)}</p>

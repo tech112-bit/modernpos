@@ -173,7 +173,7 @@ export default function NewSalePage() {
           quantity: item.quantity,
           price: item.price
         })),
-        paymentType,
+        payment_type: paymentType,
         discount,
         csrfToken
       }
@@ -220,7 +220,7 @@ export default function NewSalePage() {
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category.name.toLowerCase().includes(searchTerm.toLowerCase())
+            product.categories.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   return (
@@ -290,7 +290,7 @@ export default function NewSalePage() {
                       <h4 className="font-medium text-gray-900">{product.name}</h4>
                       <span className="text-sm text-gray-500">{product.sku}</span>
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">{product.category.name}</p>
+                    <p className="text-sm text-gray-600 mb-2">{product.categories.name}</p>
                                          <div className="flex justify-between items-center">
                        <span className="text-lg font-bold text-green-600">{formatCurrency(Number(product.price))}</span>
                        <div className="flex items-center space-x-2">

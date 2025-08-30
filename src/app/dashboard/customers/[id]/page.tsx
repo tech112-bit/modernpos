@@ -22,7 +22,7 @@ interface Customer {
   address?: string
   city?: string
   state?: string
-  zipCode?: string
+  zip_code?: string
   createdAt: string
   totalSpent: number
   orderCount: number
@@ -58,7 +58,7 @@ export default function CustomerDetailPage() {
           address: data.address,
           city: data.city,
           state: data.state,
-          zipCode: data.zipCode,
+          zip_code: data.zip_code,
           createdAt: data.createdAt,
           totalSpent: 0, // Will be calculated from sales
           orderCount: data._count.sales
@@ -84,7 +84,7 @@ export default function CustomerDetailPage() {
       address: customer.address || '',
       city: customer.city || '',
       state: customer.state || '',
-      zipCode: customer.zipCode || ''
+              zip_code: customer.zip_code || ''
     })
     setIsEditing(true)
   }
@@ -380,14 +380,14 @@ export default function CustomerDetailPage() {
                 </div>
                 
                 <div>
-                  <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700">
-                    ZIP Code
-                  </label>
-                  <input
-                    type="text"
-                    id="zipCode"
-                    value={editForm.zipCode || ''}
-                    onChange={(e) => handleInputChange('zipCode', e.target.value)}
+                          <label htmlFor="zip_code" className="block text-sm font-medium text-gray-700">
+          ZIP Code
+        </label>
+        <input
+          type="text"
+          id="zip_code"
+          value={editForm.zip_code || ''}
+          onChange={(e) => handleInputChange('zip_code', e.target.value)}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   />
                 </div>
@@ -424,14 +424,14 @@ export default function CustomerDetailPage() {
                   </div>
                 )}
                 
-                {(customer.address || customer.city || customer.state || customer.zipCode) && (
+                {(customer.address || customer.city || customer.state || customer.zip_code) && (
                   <div className="flex items-start text-sm text-gray-600">
                     <MapPinIcon className="h-4 w-4 mr-2 text-gray-400 mt-0.5" />
                     <div>
                       {customer.address && <div>{customer.address}</div>}
-                      {(customer.city || customer.state || customer.zipCode) && (
+                      {(customer.city || customer.state || customer.zip_code) && (
                         <div>
-                          {[customer.city, customer.state, customer.zipCode].filter(Boolean).join(', ')}
+                          {[customer.city, customer.state, customer.zip_code].filter(Boolean).join(', ')}
                         </div>
                       )}
                     </div>
