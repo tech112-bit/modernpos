@@ -4,13 +4,16 @@ import { useState, useEffect } from 'react'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { formatRelativeTime } from '@/lib/utils'
+import SalesTrendChart from '@/components/SalesTrendChart'
 import {
   CalendarIcon,
   ArrowTrendingUpIcon,
   CurrencyDollarIcon,
   ShoppingBagIcon,
   ArrowDownTrayIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  ChartBarIcon,
+  ChartBarSquareIcon
 } from '@heroicons/react/24/outline'
 
 interface SalesData {
@@ -47,6 +50,7 @@ export default function ReportsPage() {
   const { addNotification } = useNotifications()
   const { formatCurrency } = useCurrency()
   const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month'>('today')
+  const [chartType, setChartType] = useState<'line' | 'bar'>('line')
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
@@ -327,6 +331,40 @@ export default function ReportsPage() {
        </div>
      </div>
 
+     {/* Chart Type Selector */}
+     <div className="bg-white shadow rounded-lg p-2 xs:p-3 md:p-4 lg:p-5">
+       <div className="flex items-center justify-between">
+         <div className="flex items-center space-x-2">
+           <ChartBarIcon className="h-4 w-4 text-gray-500" />
+           <span className="text-sm font-medium text-gray-700">Chart Type</span>
+         </div>
+         <div className="flex space-x-1 xs:space-x-1.5 md:space-x-2 lg:space-x-3">
+           <button
+             onClick={() => setChartType('line')}
+             className={`px-2 xs:px-2.5 md:px-4 lg:px-5 py-1 xs:py-1.5 md:py-2 lg:py-2.5 text-[10px] xs:text-xs md:text-sm lg:text-base font-medium rounded-md transition-colors flex items-center space-x-1 ${
+               chartType === 'line'
+                 ? 'bg-blue-600 text-white'
+                 : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+             }`}
+           >
+             <ChartBarSquareIcon className="h-3 w-3 xs:h-3.5 xs:w-3.5 md:h-4 md:w-4" />
+             <span>Line</span>
+           </button>
+           <button
+             onClick={() => setChartType('bar')}
+             className={`px-2 xs:px-2.5 md:px-4 lg:px-5 py-1 xs:py-1.5 md:py-2 lg:py-2.5 text-[10px] xs:text-xs md:text-sm lg:text-base font-medium rounded-md transition-colors flex items-center space-x-1 ${
+               chartType === 'bar'
+                 ? 'bg-blue-600 text-white'
+                 : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+             }`}
+           >
+             <ChartBarIcon className="h-3 w-3 xs:h-3.5 xs:w-3.5 md:h-4 md:w-4" />
+             <span>Bar</span>
+           </button>
+         </div>
+       </div>
+     </div>
+
      {/* Key Metrics */}
      <div className="grid grid-cols-1 gap-2 xs:gap-3 md:gap-4 lg:gap-6 sm:grid-cols-2 lg:grid-cols-4">
        <div className="bg-white overflow-hidden shadow rounded-lg">
@@ -394,122 +432,42 @@ export default function ReportsPage() {
        </div>
      </div>
 
-     {/* Sales Trend Chart - Colorful & Clean */}
+     {/* Sales Trend Chart */}
      <div className="bg-white shadow rounded-lg">
-       <div className="px-1.5 xs:px-2 md:px-4 lg:px-6 py-1.5 xs:py-2 md:py-4 lg:py-6">
-         <h3 className="text-[10px] xs:text-xs md:text-base lg:text-xl leading-6 font-medium text-gray-900 mb-1 xs:mb-1.5 md:mb-3 lg:mb-4">
-           Sales Trend Chart
-         </h3>
+       <div className="px-3 xs:px-4 md:px-5 lg:px-6 py-3 xs:py-4 md:py-5 lg:py-6">
+         <div className="flex items-center justify-between mb-4">
+           <h3 className="text-[10px] xs:text-xs md:text-base lg:text-xl leading-6 font-medium text-gray-900">
+             Sales Trend Chart
+           </h3>
+           <div className="flex items-center space-x-2 text-xs text-gray-500">
+             <div className="flex items-center space-x-1">
+               <div className="w-3 h-3 bg-blue-500 rounded"></div>
+               <span>Revenue</span>
+             </div>
+             <div className="flex items-center space-x-1">
+               <div className="w-3 h-3 bg-green-500 rounded"></div>
+               <span>Sales Count</span>
+             </div>
+           </div>
+         </div>
+         
          {salesData && salesData.length > 0 ? (
-           <>
-             <div className="h-20 xs:h-24 md:h-32 lg:h-48">
-               {/* Debug info */}
-               <div className="text-xs text-gray-500 mb-2">
-                 Debug: {salesData.length} data points, Max: {Math.max(...salesData.map(d => d.total))}
-               </div>
-               {/* Colorful Bar Chart - No Text Labels */}
-               <div className="h-full flex items-end justify-between space-x-0.5 xs:space-x-1 md:space-x-1.5 lg:space-x-2">
-                 {salesData.map((day, index) => {
-                   const maxValue = Math.max(...salesData.map(d => d.total))
-                   const height = maxValue > 0 ? (day.total / maxValue) * 100 : 0
-                   const isHighest = day.total === maxValue
-                   
-                   // Color scheme based on performance
-                   const getBarColor = () => {
-                     if (isHighest) return 'bg-gradient-to-t from-emerald-600 to-emerald-500 shadow-lg'
-                     if (height > 80) return 'bg-gradient-to-t from-blue-600 to-blue-500'
-                     if (height > 60) return 'bg-gradient-to-t from-indigo-500 to-indigo-400'
-                     if (height > 40) return 'bg-gradient-to-t from-purple-500 to-purple-400'
-                     if (height > 20) return 'bg-gradient-to-t from-pink-500 to-pink-400'
-                     return 'bg-gradient-to-t from-gray-400 to-gray-300'
-                   }
-                   
-                   return (
-                     <div key={day.date} className="flex-1 flex flex-col items-center group relative">
-                       {/* Colorful Bar with hover effect */}
-                       <div 
-                         className={`w-full rounded-t transition-all duration-300 ease-in-out ${getBarColor()}`}
-                         style={{ height: `${height}%` }}
-                       >
-                         {/* Hover tooltip - Only on tablet and above */}
-                         <div className="hidden sm:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 xs:mb-1.5 md:mb-2 px-1.5 xs:px-2 py-0.5 xs:py-1 bg-gray-900 text-white text-[8px] xs:text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                           <div className="font-semibold">{formatCurrency(day.total)}</div>
-                           <div className="text-gray-300">{day.count} sales</div>
-                           <div className="text-gray-300">{formatRelativeTime(day.date)}</div>
-                         </div>
-                       </div>
-                     </div>
-                   )
-                 })}
-               </div>
-             </div>
-             
-             {/* Color Legend Below Chart */}
-             <div className="mt-2 xs:mt-3 md:mt-4 lg:mt-5">
-               {/* Mobile: Compact legend */}
-               <div className="md:hidden">
-                 <div className="flex flex-wrap items-center justify-center gap-1 xs:gap-2">
-                   <div className="flex items-center">
-                     <div className="w-2 h-2 xs:w-3 xs:h-3 bg-emerald-500 rounded mr-1"></div>
-                     <span className="text-[8px] xs:text-[10px] text-gray-600">Peak</span>
-                   </div>
-                   <div className="flex items-center">
-                     <div className="w-2 h-2 xs:w-3 xs:h-3 bg-blue-500 rounded mr-1"></div>
-                     <span className="text-[8px] xs:text-[10px] text-gray-600">High</span>
-                   </div>
-                   <div className="flex items-center">
-                     <div className="w-2 h-2 xs:w-3 xs:h-3 bg-indigo-500 rounded mr-1"></div>
-                     <span className="text-[8px] xs:text-[10px] text-gray-600">Good</span>
-                   </div>
-                   <div className="flex items-center">
-                     <div className="w-2 h-2 xs:w-3 xs:h-3 bg-purple-500 rounded mr-1"></div>
-                     <span className="text-[8px] xs:text-[10px] text-gray-600">Avg</span>
-                   </div>
-                   <div className="flex items-center">
-                     <div className="w-2 h-2 xs:w-3 xs:h-3 bg-pink-500 rounded mr-1"></div>
-                     <span className="text-[8px] xs:text-[10px] text-gray-600">Low</span>
-                   </div>
-                   <div className="flex items-center">
-                     <div className="w-2 h-2 xs:w-3 xs:h-3 bg-gray-400 rounded mr-1"></div>
-                     <span className="text-[8px] xs:text-[10px] text-gray-600">Min</span>
-                   </div>
-                 </div>
-               </div>
-               
-               {/* Desktop: Full legend */}
-               <div className="hidden md:flex flex-wrap items-center justify-center gap-2 xs:gap-3 md:gap-4">
-                 <div className="flex items-center">
-                   <div className="w-3 h-3 xs:w-4 xs:h-4 md:w-5 md:h-5 bg-emerald-500 rounded mr-1.5 xs:mr-2 md:mr-2.5"></div>
-                   <span className="text-[8px] xs:text-[10px] md:text-xs lg:text-sm text-gray-600 font-medium">Peak Day</span>
-                 </div>
-                 <div className="flex items-center">
-                   <div className="w-3 h-3 xs:w-4 xs:h-4 md:w-5 md:h-5 bg-blue-500 rounded mr-1.5 xs:mr-2 md:mr-2.5"></div>
-                   <span className="text-[8px] xs:text-[10px] md:text-xs lg:text-sm text-gray-600 font-medium">High Sales</span>
-                 </div>
-                 <div className="flex items-center">
-                   <div className="w-3 h-3 xs:w-4 xs:h-4 md:w-5 md:h-5 bg-indigo-500 rounded mr-1.5 xs:mr-2 md:mr-2.5"></div>
-                   <span className="text-[8px] xs:text-[10px] md:text-xs lg:text-sm text-gray-600 font-medium">Good Sales</span>
-                 </div>
-                 <div className="flex items-center">
-                   <div className="w-3 h-3 xs:w-4 xs:h-4 md:w-5 md:h-5 bg-purple-500 rounded mr-1.5 xs:mr-2 md:mr-2.5"></div>
-                   <span className="text-[8px] xs:text-[10px] md:text-xs lg:text-sm text-gray-600 font-medium">Average Sales</span>
-                 </div>
-                 <div className="flex items-center">
-                   <div className="w-3 h-3 xs:w-4 xs:h-4 md:w-5 md:h-5 bg-pink-500 rounded mr-1.5 xs:mr-2 md:mr-2.5"></div>
-                   <span className="text-[8px] xs:text-[10px] md:text-xs lg:text-sm text-gray-600 font-medium">Low Sales</span>
-                 </div>
-                 <div className="flex items-center">
-                   <div className="w-3 h-3 xs:w-4 xs:h-4 md:w-5 md:h-5 bg-gray-400 rounded mr-1.5 xs:mr-2 md:mr-2.5"></div>
-                   <span className="text-[8px] xs:text-[10px] md:text-xs lg:text-sm text-gray-600 font-medium">Minimal Sales</span>
-                 </div>
-               </div>
-             </div>
-           </>
+           <SalesTrendChart 
+             data={salesData} 
+             period={selectedPeriod} 
+             chartType={chartType}
+           />
          ) : (
-           <div className="h-20 xs:h-24 md:h-32 lg:h-48 flex items-center justify-center">
-             <p className="text-gray-500 text-center">
-               No sales data available for {selectedPeriod}
-             </p>
+           <div className="h-80 flex items-center justify-center">
+             <div className="text-center">
+               <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                 <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                 </svg>
+               </div>
+               <p className="text-gray-500 text-sm">No sales data available for {selectedPeriod}</p>
+               <p className="text-gray-400 text-xs mt-1">Try selecting a different time period</p>
+             </div>
            </div>
          )}
        </div>

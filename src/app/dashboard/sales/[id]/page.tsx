@@ -4,25 +4,26 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useNotifications } from '@/contexts/NotificationContext'
-import { useCurrency } from '@/contexts/CurrencyContext'
+
 import { formatRelativeTime } from '@/lib/utils'
 import {
   ArrowLeftIcon,
   TrashIcon,
   UserIcon,
   ShoppingCartIcon,
-  CalendarIcon,
+
   CurrencyDollarIcon
 } from '@heroicons/react/24/outline'
 
 interface Sale {
   id: string
-  total: number
+  total: number | string | { toString(): string } // Prisma Decimal type
   payment_type: string
-  discount: number
+  discount: number | string | { toString(): string } // Prisma Decimal type
   created_at: string
-  user: {
+  users: {
     email: string
+    name: string
   }
   customers?: {
     name: string
@@ -31,7 +32,7 @@ interface Sale {
   }
   sale_items: Array<{
     quantity: number
-    price: number
+    price: number | string | { toString(): string } // Prisma Decimal type
     products: {
       name: string
       sku: string
@@ -110,7 +111,7 @@ export default function SaleDetailPage() {
         const errorData = await response.json()
         setError(errorData.error || 'Failed to delete sale')
       }
-    } catch (err) {
+    } catch {
       setError('Failed to delete sale. Please try again.')
     } finally {
       setDeleting(false)
@@ -200,7 +201,7 @@ export default function SaleDetailPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500">Processed By</label>
-                <p className="mt-1 text-sm text-gray-900">{sale.user.email}</p>
+                <p className="mt-1 text-sm text-gray-900">{sale.users.email}</p>
               </div>
             </div>
           </div>
@@ -243,8 +244,8 @@ export default function SaleDetailPage() {
                     <p className="text-sm text-gray-500">SKU: {item.products.sku}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-gray-500">{item.quantity} × ${item.price.toFixed(2)}</p>
-                    <p className="font-medium text-gray-900">${(item.quantity * item.price).toFixed(2)}</p>
+                    <p className="text-sm text-gray-500">{item.quantity} × ${Number(item.price).toFixed(2)}</p>
+                    <p className="font-medium text-gray-900">${(item.quantity * Number(item.price)).toFixed(2)}</p>
                   </div>
                 </div>
               ))}
@@ -263,18 +264,18 @@ export default function SaleDetailPage() {
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Subtotal:</span>
-                <span className="text-gray-900">${(sale.total + sale.discount).toFixed(2)}</span>
+                <span className="text-gray-900">${(Number(sale.total) + Number(sale.discount)).toFixed(2)}</span>
               </div>
-              {sale.discount > 0 && (
+              {Number(sale.discount) > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Discount:</span>
-                  <span className="text-red-600">-${sale.discount.toFixed(2)}</span>
+                  <span className="text-red-600">-${Number(sale.discount).toFixed(2)}</span>
                 </div>
               )}
               <div className="border-t border-gray-200 pt-3">
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total:</span>
-                  <span className="text-green-600">${sale.total.toFixed(2)}</span>
+                  <span className="text-green-600">${Number(sale.total).toFixed(2)}</span>
                 </div>
               </div>
             </div>
