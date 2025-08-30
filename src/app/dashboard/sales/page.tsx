@@ -46,6 +46,18 @@ export default function SalesPage() {
     fetchSales()
   }, [])
 
+  // Refresh data when page becomes visible (e.g., returning from creating a new sale)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchSales()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [])
+
   const fetchSales = async () => {
     try {
       setLoading(true)

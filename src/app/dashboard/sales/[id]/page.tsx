@@ -24,15 +24,15 @@ interface Sale {
   user: {
     email: string
   }
-  customer?: {
+  customers?: {
     name: string
     phone: string
     email: string
   }
-  items: Array<{
+  sale_items: Array<{
     quantity: number
     price: number
-    product: {
+    products: {
       name: string
       sku: string
     }
@@ -206,7 +206,7 @@ export default function SaleDetailPage() {
           </div>
 
           {/* Customer Information */}
-          {sale.customer && (
+          {sale.customers && (
             <div className="bg-white shadow rounded-lg p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
                 <UserIcon className="h-5 w-5 mr-2" />

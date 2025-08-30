@@ -130,17 +130,29 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Validate input
-    const validatedData = createSaleSchema.parse(body)
-    
-    // Get the first available user (for now, since we don't have auth context)
-    const user = await prisma.users.findFirst()
-    if (!user) {
+    // Get user info from token
+    const authToken = request.cookies.get('token')?.value
+    if (!authToken) {
       return NextResponse.json(
-        { error: 'No users found in database' },
-        { status: 500 }
+        { error: 'Not authenticated' },
+        { status: 401 }
       )
     }
+
+    // Import and verify token
+    const { verifyToken } = await import('@/lib/auth')
+    const decoded = await verifyToken(authToken)
+    if (!decoded) {
+      return NextResponse.json(
+        { error: 'Invalid token' },
+        { status: 401 }
+      )
+    }
+
+    const userId = decoded.userId
+    
+    // Validate input
+    const validatedData = createSaleSchema.parse(body)
     
     // Calculate total
     const total = validatedData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0) - validatedData.discount
@@ -155,7 +167,7 @@ export async function POST(request: NextRequest) {
           payment_type: validatedData.payment_type,
           discount: validatedData.discount,
           customer_id: validatedData.customer_id || null,
-          user_id: user.id, // Use the found user ID
+          user_id: userId, // Use the authenticated user ID
           created_at: new Date(),
           updated_at: new Date(),
           sale_items: {
@@ -164,7 +176,7 @@ export async function POST(request: NextRequest) {
               product_id: item.product_id,
               quantity: item.quantity,
               price: item.price,
-              user_id: user.id,
+              user_id: userId,
               created_at: new Date()
             }))
           }

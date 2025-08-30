@@ -63,6 +63,18 @@ export default function DashboardPage() {
     }
   }, [user, authLoading])
 
+  // Refresh data when page becomes visible (e.g., returning from other pages)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && !authLoading && user && user.role !== 'ADMIN') {
+        fetchDashboardStats()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [user, authLoading])
+
   // Show loading state while checking auth
   if (authLoading) {
     return (

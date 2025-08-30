@@ -22,7 +22,7 @@ interface Product {
   price: number | string // Can be Decimal from database (string) or number
   cost: number | string
   stock: number
-  category: {
+  categories: {
     name: string
   }
 }
