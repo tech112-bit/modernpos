@@ -5,6 +5,27 @@ import { parse } from 'csv-parse'
 // POST /api/products/import - Import products from CSV
 export async function POST(request: NextRequest) {
   try {
+    // Get user info from token first
+    const authToken = request.cookies.get('token')?.value
+    if (!authToken) {
+      return NextResponse.json(
+        { error: 'Not authenticated' },
+        { status: 401 }
+      )
+    }
+
+    // Import and verify token
+    const { verifyToken } = await import('@/lib/auth')
+    const decoded = await verifyToken(authToken)
+    if (!decoded) {
+      return NextResponse.json(
+        { error: 'Invalid token' },
+        { status: 401 }
+      )
+    }
+
+    const userId = decoded.userId
+    
     const formData = await request.formData()
     const file = formData.get('file') as File
     
@@ -53,7 +74,7 @@ export async function POST(request: NextRequest) {
     for (const record of records) {
       try {
         // Validate required fields
-        if (!record.name || !record.sku || !record.price || !record.category) {
+        if (!record.name || !record.sku || !record.price || !record.category_id) {
           errors.push(`Row ${successCount + errorCount + 1}: Missing required fields`)
           errorCount++
           continue
@@ -70,26 +91,26 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Find or create category
-        let category = await prisma.categories.findFirst({
-          where: { name: record.category }
+        // Find category by ID
+        const category = await prisma.categories.findFirst({
+          where: { 
+            id: record.category_id,
+            user_id: userId
+          }
         })
 
         if (!category) {
-          category = await prisma.categories.create({
-            data: { 
-              id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              name: record.category,
-              user_id: 'admin_user_id', // This should come from auth context
-              created_at: new Date(),
-              updated_at: new Date()
-            }
-          })
+          errors.push(`Row ${successCount + errorCount + 1}: Category not found`)
+          errorCount++
+          continue
         }
 
         // Check if product already exists
-        const existingProduct = await prisma.products.findUnique({
-          where: { sku: record.sku }
+        const existingProduct = await prisma.products.findFirst({
+          where: { 
+            sku: record.sku,
+            user_id: userId
+          }
         })
 
         if (existingProduct) {
@@ -119,7 +140,7 @@ export async function POST(request: NextRequest) {
               cost: cost,
               stock: stock,
               category_id: category.id,
-              user_id: 'admin_user_id', // This should come from auth context
+              user_id: userId, // Use authenticated user ID
               created_at: new Date(),
               updated_at: new Date()
             }

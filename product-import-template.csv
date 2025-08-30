@@ -1,0 +1,11 @@
+name,description,sku,barcode,price,cost,stock,category_id
+"iPhone 15 Pro","Latest iPhone with titanium design and A17 Pro chip","IPH15PRO-128","1234567890123",1299.99,899.99,50,"cat_1703123456789_abc123def"
+"Samsung Galaxy S24","Android flagship with AI features","SAMS24-256","9876543210987",1099.99,699.99,45,"cat_1703123456789_abc123def"
+"MacBook Air M2","13-inch laptop with M2 chip","MBA-M2-13","4567890123456",1199.99,799.99,30,"cat_1703123456789_abc123def"
+"iPad Air 5th Gen","10.9-inch tablet with M1 chip","IPAD-AIR-5","7890123456789",599.99,399.99,75,"cat_1703123456789_abc123def"
+"AirPods Pro 2nd Gen","Wireless earbuds with noise cancellation","AIRPODS-PRO2","3210987654321",249.99,149.99,100,"cat_1703123456789_abc123def"
+"Apple Watch Series 9","Smartwatch with health monitoring","AW-S9-45","6543210987654",399.99,249.99,60,"cat_1703123456789_abc123def"
+"Magic Keyboard","Wireless keyboard for Mac and iPad","MAGIC-KB-WIRE","1357924680135",99.99,59.99,120,"cat_1703123456789_abc123def"
+"Magic Mouse","Wireless mouse with gesture support","MAGIC-MOUSE-W","2468013579246",79.99,49.99,80,"cat_1703123456789_abc123def"
+"USB-C Cable","High-speed USB-C charging cable","USB-C-1M","3692581470369",19.99,9.99,200,"cat_1703123456789_abc123def"
+"Lightning Cable","Apple Lightning charging cable","LIGHTNING-1M","1472583690147",24.99,14.99,150,"cat_1703123456789_abc123def"

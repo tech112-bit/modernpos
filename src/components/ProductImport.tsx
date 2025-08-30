@@ -83,9 +83,9 @@ export default function ProductImport() {
   }
 
   const downloadTemplate = () => {
-    const csvContent = `name,sku,price,cost,stock,category,description,barcode
-"Premium T-Shirt","TSH-001",25000,15000,50,"T-Shirts","High-quality cotton t-shirt","123456789"
-"Classic Jeans","JNS-001",45000,28000,30,"Jeans","Comfortable denim jeans","987654321"`
+    const csvContent = `name,description,sku,barcode,price,cost,stock,category_id
+"Premium T-Shirt","High-quality cotton t-shirt","TSH-001","123456789",25000,15000,50,"cat_1703123456789_abc123def"
+"Classic Jeans","Comfortable denim jeans","JNS-001","987654321",45000,28000,30,"cat_1703123456789_def456ghi"`
     
     const blob = new Blob([csvContent], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
