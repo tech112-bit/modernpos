@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import CurrencySelector from '@/components/CurrencySelector'
 import { useNotifications } from '@/contexts/NotificationContext'
@@ -13,8 +13,13 @@ import {
 interface ImportResult {
   total: number
   success: number
-  failed: number
-  errors: string[]
+  errors: number
+}
+
+interface ApiResponse {
+  message: string
+  summary: ImportResult
+  errors?: string[]
 }
 
 export default function ProductImport() {
@@ -24,6 +29,7 @@ export default function ProductImport() {
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [showErrors, setShowErrors] = useState(false)
+  const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -57,11 +63,12 @@ export default function ProductImport() {
       const data = await response.json()
 
       if (response.ok) {
-        setResult(data.results)
+        setResult(data.summary)
+        setApiResponse(data)
         addNotification({
           type: 'success',
           title: 'Import Successful',
-          message: `Imported ${data.results.success} products successfully in ${currentCurrency?.code}`
+          message: `Imported ${data.summary.success} products successfully in ${currentCurrency?.code}`
         })
       } else {
         addNotification({
@@ -100,6 +107,7 @@ export default function ProductImport() {
     setFile(null)
     setResult(null)
     setShowErrors(false)
+    setApiResponse(null)
   }
 
   return (
@@ -217,41 +225,41 @@ export default function ProductImport() {
         <div className="mt-6 bg-gray-50 rounded-lg p-4">
           <h4 className="text-sm font-medium text-gray-900 mb-3">Import Results</h4>
           
-          <div className="grid grid-cols-3 gap-4 mb-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{result.success}</div>
-              <div className="text-xs text-gray-500">Successful</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{result.failed}</div>
-              <div className="text-xs text-gray-500">Failed</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{result.total}</div>
-              <div className="text-xs text-gray-500">Total</div>
-            </div>
-          </div>
+                     <div className="grid grid-cols-3 gap-4 mb-4">
+             <div className="text-center">
+               <div className="text-2xl font-bold text-green-600">{result.success}</div>
+               <div className="text-xs text-gray-500">Successful</div>
+             </div>
+             <div className="text-center">
+               <div className="text-2xl font-bold text-red-600">{result.errors}</div>
+               <div className="text-xs text-gray-500">Errors</div>
+             </div>
+             <div className="text-center">
+               <div className="text-2xl font-bold text-blue-600">{result.total}</div>
+               <div className="text-xs text-gray-500">Total</div>
+             </div>
+           </div>
 
-          {result.errors.length > 0 && (
-            <div>
-              <button
-                onClick={() => setShowErrors(!showErrors)}
-                className="text-sm text-blue-600 hover:text-blue-500"
-              >
-                {showErrors ? 'Hide' : 'Show'} {result.errors.length} errors
-              </button>
-              
-              {showErrors && (
-                <div className="mt-2 max-h-32 overflow-y-auto">
-                  {result.errors.map((error, index) => (
-                    <div key={index} className="text-xs text-red-600 mb-1">
-                      {error}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                     {result.errors && result.errors > 0 && (
+             <div>
+               <button
+                 onClick={() => setShowErrors(!showErrors)}
+                 className="text-sm text-blue-600 hover:text-blue-500"
+               >
+                 {showErrors ? 'Hide' : 'Show'} {result.errors} errors
+               </button>
+               
+               {showErrors && apiResponse?.errors && (
+                 <div className="mt-2 max-h-32 overflow-y-auto">
+                   {apiResponse.errors.map((error: string, index: number) => (
+                     <div key={index} className="text-xs text-red-600 mb-1">
+                       {error}
+                     </div>
+                   ))}
+                 </div>
+               )}
+             </div>
+           )}
         </div>
       )}
     </div>
