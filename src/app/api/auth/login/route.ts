@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authenticateUser, generateToken } from '@/lib/auth'
 import { loginSchema } from '@/lib/validations'
 import { loginRateLimiter, logSecurityEvent, detectSuspiciousActivity, sanitizeInput } from '@/lib/security'
+import { setSecureTokenCookie } from '@/lib/secure-cookies'
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json(
         { message: 'Invalid input', errors: validation.error.issues },
-        { status: 400 }
+        { status: 200 }
       )
     }
 
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
     })
     console.log('✅ JWT token generated successfully')
 
-    // Set HTTP-only cookie
+    // Create response with user data
     const response = NextResponse.json(
       { 
         message: 'Login successful',
@@ -113,13 +114,15 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     )
 
-    response.cookies.set('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60 // 24 hours (reduced from 7 days for security)
+    // Set secure HTTP-only cookie using DRY utility
+    setSecureTokenCookie(response, {
+      token,
+      userId: user.id,
+      email: user.email,
+      role: user.role
     })
 
+    console.log('🍪 Secure cookies set successfully')
     return response
 
   } catch (error) {

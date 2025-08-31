@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
+import { extractTokenFromCookies } from '@/lib/secure-cookies'
 
 // Validation schema for password reset
 const resetPasswordSchema = z.object({
@@ -18,7 +19,7 @@ export async function POST(
     const { id: userId } = await params
     
     // Get user info from token
-    const authToken = request.cookies.get('token')?.value
+    const authToken = extractTokenFromCookies(request)
     if (!authToken) {
       return NextResponse.json(
         { error: 'Not authenticated' },

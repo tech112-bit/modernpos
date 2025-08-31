@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
+import { extractTokenFromCookies } from '@/lib/secure-cookies'
 
 // Validation schema for creating categories
 const createCategorySchema = z.object({
@@ -11,7 +12,7 @@ const createCategorySchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     // Get user info from token
-    const authToken = request.cookies.get('token')?.value
+    const authToken = extractTokenFromCookies(request)
     if (!authToken) {
       return NextResponse.json(
         { error: 'Not authenticated' },
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Get user info from token first
-    const authToken = request.cookies.get('token')?.value
+    const authToken = extractTokenFromCookies(request)
     if (!authToken) {
       return NextResponse.json(
         { error: 'Not authenticated' },

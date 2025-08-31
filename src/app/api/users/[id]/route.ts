@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 import { verifyToken } from '@/lib/auth'
+import { extractTokenFromCookies } from '@/lib/secure-cookies'
 
 // GET /api/users/[id] - Get specific user (Admin only)
 export async function GET(
@@ -11,7 +12,7 @@ export async function GET(
   try {
     const { id } = await params
     // Get token from cookies
-    const token = request.cookies.get('token')?.value
+    const token = extractTokenFromCookies(request)
     
     if (!token) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 })
@@ -63,7 +64,7 @@ export async function PUT(
     const { id } = await params
     
     // Get token from cookies
-    const token = request.cookies.get('token')?.value
+    const token = extractTokenFromCookies(request)
     
     if (!token) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 })
@@ -133,7 +134,7 @@ export async function DELETE(
     const { id } = await params
     
     // Get token from cookies
-    const token = request.cookies.get('token')?.value
+    const token = extractTokenFromCookies(request)
     
     if (!token) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 })

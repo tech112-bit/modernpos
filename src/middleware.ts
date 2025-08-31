@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { verifyTokenEdge, JWTPayload } from '@/lib/jwt-edge'
 import { logSecurityEvent, detectSuspiciousActivity } from '@/lib/security-edge'
+import { extractTokenFromCookies } from '@/lib/secure-cookies'
 
 // Security headers for production
 const securityHeaders = {
@@ -72,8 +73,8 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Check if user is authenticated for protected routes
-  const authToken = request.cookies.get('token')?.value
+  // Check if user is authenticated for protected routes using DRY utility
+  const authToken = extractTokenFromCookies(request)
 
   console.log('Middleware checking path:', pathname, 'Token exists:', !!authToken)
 
@@ -101,40 +102,61 @@ export async function middleware(request: NextRequest) {
         pathname,
         ip: clientIP,
         userAgent,
-        reason: 'Invalid auth token'
+        reason: 'Invalid token'
       }, request)
       
-      // Invalid token, redirect to login
-      console.log('Invalid token, redirecting to login')
-      const loginUrl = new URL('/login', request.url)
-      return NextResponse.redirect(loginUrl)
+      // Clear invalid token and redirect to login
+      console.log('Invalid token, clearing cookies and redirecting to login')
+      const response = NextResponse.redirect(new URL('/login', request.url))
+      
+      // Clear the invalid token cookie
+      response.cookies.set('auth_token', '', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        maxAge: 0,
+        path: '/',
+      })
+      
+      return response
     }
 
     // Token is valid, allow access
-    console.log('Token valid, allowing access to:', pathname)
+    console.log('✅ Token verified, allowing access to:', pathname)
     
-    // For API routes, set the authorization header so the API can access the token
+    // Add user info to headers for API routes (optional)
     if (pathname.startsWith('/api/')) {
       const response = NextResponse.next()
-      response.headers.set('authorization', `Bearer ${authToken}`)
-      // Add security headers
-      Object.entries(securityHeaders).forEach(([key, value]) => {
-        response.headers.set(key, value)
-      })
+      response.headers.set('x-user-id', decoded.userId)
+      response.headers.set('x-user-role', decoded.role)
       return response
     }
-    
-    // Add security headers for page routes
-    const response = NextResponse.next()
-    Object.entries(securityHeaders).forEach(([key, value]) => {
-      response.headers.set(key, value)
-    })
-    return response
+
+    return NextResponse.next()
+
   } catch (error) {
-    // Token verification failed, redirect to login
-    console.log('Token verification failed:', error)
-    const loginUrl = new URL('/login', request.url)
-    return NextResponse.redirect(loginUrl)
+    console.error('Middleware error:', error)
+    
+    logSecurityEvent('MIDDLEWARE_ERROR', {
+      pathname,
+      ip: clientIP,
+      userAgent,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, request)
+    
+    // On error, redirect to login
+    const response = NextResponse.redirect(new URL('/login', request.url))
+    
+    // Clear any potentially corrupted cookies
+    response.cookies.set('auth_token', '', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 0,
+      path: '/',
+    })
+    
+    return response
   }
 }
 
@@ -142,11 +164,11 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api/auth (auth API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - public folder
      */
-    '/((?!api/auth|_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public).*)',
   ],
 }

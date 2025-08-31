@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { extractTokenFromCookies } from '@/lib/secure-cookies'
 
 // GET /api/reports/sales - Get sales data for reports
 export async function GET(request: NextRequest) {
   try {
     // Get user info from token
-    const authToken = request.cookies.get('token')?.value
+    const authToken = extractTokenFromCookies(request)
     if (!authToken) {
       return NextResponse.json(
         { error: 'Not authenticated' },

@@ -1,13 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { formatRelativeTime } from '@/lib/utils'
+import { LoadingSpinner, Card } from '@/components/ui'
+import { useSmartDataFetching } from '@/hooks'
 import { 
-  PlusIcon, 
-  PencilIcon, 
-  TrashIcon,
   UserIcon,
   ShieldCheckIcon
 } from '@heroicons/react/24/outline'
@@ -20,54 +18,32 @@ interface User {
   createdAt: string
 }
 
+interface UsersApiResponse {
+  users: User[]
+}
+
 export default function UsersPage() {
   const { user: currentUser } = useAuth()
   const { addNotification } = useNotifications()
-  const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
 
+  // Use smart data fetching with caching
+  const { 
+    data: usersData, 
+    loading, 
+    error 
+  } = useSmartDataFetching<User[]>({
+    endpoint: '/api/users',
+    autoFetch: currentUser?.role === 'ADMIN',
+    cacheDuration: 300000, // Cache for 5 minutes
+    debounceDelay: 500, // Debounce API calls
+    transform: (data: unknown) => (data as UsersApiResponse).users || []
+  })
 
-  useEffect(() => {
-    if (currentUser?.role === 'ADMIN') {
-      fetchUsers()
-    }
-  }, [currentUser])
-
-  const fetchUsers = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch('/api/users')
-      if (response.ok) {
-        const data = await response.json()
-        setUsers(data.users)
-      } else {
-        addNotification({
-          type: 'error',
-          title: 'Failed to fetch users',
-          message: 'Unable to load user list',
-          duration: 5000
-        })
-      }
-    } catch (error) {
-      console.error('Error fetching users:', error)
-      addNotification({
-        type: 'error',
-        title: 'Network Error',
-        message: 'Failed to connect to server',
-        duration: 5000
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+  const users = usersData || []
 
   const UsersContent = () => {
     if (loading) {
-      return (
-        <div className="flex items-center justify-center min-h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-        </div>
-      )
+      return <LoadingSpinner />
     }
 
     return (
@@ -82,8 +58,65 @@ export default function UsersPage() {
           </div>
         </div>
 
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card>
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="h-10 w-10 sm:h-12 sm:w-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <UserIcon className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+                </div>
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium text-gray-500 sm:text-base">Total Users</p>
+                <p className="text-2xl font-bold text-gray-900 sm:text-3xl">{users.length}</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="hidden sm:block">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <ShieldCheckIcon className="h-6 w-6 text-red-600" />
+                </div>
+              </div>
+              <div className="ml-4 flex-1">
+                <p className="text-base font-medium text-gray-500">Admin Users</p>
+                <p className="text-3xl font-bold text-gray-900">{users.filter(u => u.role === 'ADMIN').length}</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="hidden sm:block">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <UserIcon className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+              <div className="ml-4 flex-1">
+                <p className="text-base font-medium text-gray-500">Regular Users</p>
+                <p className="text-3xl font-bold text-gray-900">{users.filter(u => u.role !== 'ADMIN').length}</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <Card className="bg-red-50 border-red-200">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800 sm:text-base">Error</h3>
+                <div className="mt-2 text-sm text-red-700 sm:text-base">{error}</div>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Users List */}
-        <div className="bg-white shadow rounded-lg">
+        <Card className="overflow-hidden">
           <div className="px-4 xs:px-5 md:px-6 py-4 xs:py-5 md:py-6">
             <h3 className="text-base xs:text-lg md:text-xl font-medium text-gray-900 mb-4">System Users</h3>
             
@@ -99,7 +132,7 @@ export default function UsersPage() {
                     <tr>
                       <th className="px-3 xs:px-4 md:px-6 py-3 text-left text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider">User</th>
                       <th className="px-3 xs:px-4 md:px-6 py-3 text-left text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                                             <th className="px-3 xs:px-4 md:px-6 py-3 text-left text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                      <th className="px-3 xs:px-4 md:px-6 py-3 text-left text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider">Created</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -127,9 +160,9 @@ export default function UsersPage() {
                             {user.role}
                           </span>
                         </td>
-                                                 <td className="px-3 xs:px-4 md:px-6 py-4 whitespace-nowrap text-xs xs:text-sm text-gray-500">
-                           {formatRelativeTime(user.createdAt)}
-                         </td>
+                        <td className="px-3 xs:px-4 md:px-6 py-4 whitespace-nowrap text-xs xs:text-sm text-gray-500">
+                          {formatRelativeTime(new Date(user.createdAt))}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -137,18 +170,14 @@ export default function UsersPage() {
               </div>
             )}
           </div>
-        </div>
+        </Card>
       </div>
     )
   }
 
-
-
   return (
     <AdminRouteGuard>
       <UsersContent />
-      
-      
     </AdminRouteGuard>
   )
 }

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
+import { extractTokenFromCookies } from '@/lib/secure-cookies'
 
 export async function GET(request: NextRequest) {
   try {
-    const authToken = request.cookies.get('token')?.value
+    // Extract token using DRY utility
+    const authToken = extractTokenFromCookies(request)
 
     if (!authToken) {
       return NextResponse.json(

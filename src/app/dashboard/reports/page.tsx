@@ -1,44 +1,37 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
-import { formatRelativeTime } from '@/lib/utils'
+import { useSmartDataFetching } from '@/hooks'
+import { LoadingSpinner, Card } from '@/components/ui'
 import SalesTrendChart from '@/components/SalesTrendChart'
-import {
-  CalendarIcon,
-  ArrowTrendingUpIcon,
-  CurrencyDollarIcon,
-  ShoppingBagIcon,
-  ArrowDownTrayIcon,
+import { 
   ArrowPathIcon,
+  DocumentArrowDownIcon,
   ChartBarIcon,
-  ChartBarSquareIcon
+  CurrencyDollarIcon,
+  ShoppingCartIcon,
+  ArrowTrendingUpIcon
 } from '@heroicons/react/24/outline'
-
-interface SalesData {
-  date: string
-  total: number
-  count: number
-}
-
-interface ProductSales {
-  name: string
-  quantity: number
-  revenue: number
-}
-
-interface PaymentBreakdown {
-  method: string
-  amount: number
-  count: number
-}
 
 interface ReportData {
   period: string
-  salesData: SalesData[]
-  topProducts: ProductSales[]
-  paymentBreakdown: PaymentBreakdown[]
+  salesData: Array<{
+    date: string
+    total: number
+    count: number
+  }>
+  topProducts: Array<{
+    name: string
+    quantity: number
+    revenue: number
+  }>
+  paymentBreakdown: Array<{
+    method: string
+    amount: number
+    count: number
+  }>
   summary: {
     totalRevenue: number
     totalSales: number
@@ -46,46 +39,76 @@ interface ReportData {
   }
 }
 
+interface ReportsApiResponse extends ReportData {}
+
 export default function ReportsPage() {
   const { addNotification } = useNotifications()
   const { formatCurrency } = useCurrency()
   const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month'>('today')
   const [chartType, setChartType] = useState<'line' | 'bar'>('line')
-  const [reportData, setReportData] = useState<ReportData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [exporting, setExporting] = useState(false)
 
-  // Fetch report data when period changes
-  useEffect(() => {
-    fetchReportData()
-  }, [selectedPeriod])
-
-  const fetchReportData = async () => {
-    setLoading(true)
-    try {
-      console.log(`Fetching report data for period: ${selectedPeriod}`)
-      const response = await fetch(`/api/reports/sales?period=${selectedPeriod}`)
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Received report data:', data)
-        setReportData(data)
-      } else {
-        const errorText = await response.text()
-        console.error('API response error:', response.status, errorText)
-        throw new Error(`Failed to fetch report data: ${response.status}`)
-      }
-    } catch (error) {
-      console.error('Error fetching report data:', error)
+  // Use smart data fetching with caching
+  const { 
+    data: reportData, 
+    loading, 
+    error,
+    refetch: fetchReportData 
+  } = useSmartDataFetching<ReportsApiResponse>({
+    endpoint: `/api/reports/sales?period=${selectedPeriod}`,
+    autoFetch: true,
+    cacheDuration: 300000, // Cache for 5 minutes
+    debounceDelay: 500, // Debounce API calls
+    onError: (errorMessage: string) => {
       addNotification({
         type: 'error',
         title: 'Fetch Failed',
         message: 'Failed to fetch report data. Please try again.',
         duration: 5000
       })
-    } finally {
-      setLoading(false)
     }
-  }
+  })
+
+  // Debug: Log the API response
+  console.log('Reports API Response:', reportData)
+  console.log('Reports API Endpoint:', `/api/reports/sales?period=${selectedPeriod}`)
+  console.log('Loading state:', loading)
+  console.log('Error state:', error)
+
+  // Monitor data changes
+  useEffect(() => {
+    console.log('useEffect - reportData changed:', reportData)
+    if (reportData) {
+      console.log('Data structure:', {
+        hasSalesData: !!reportData.salesData,
+        salesDataLength: reportData.salesData?.length,
+        salesDataKeys: reportData.salesData?.[0] ? Object.keys(reportData.salesData[0]) : []
+      })
+    }
+  }, [reportData])
+
+  // Memoize processed data to prevent recalculation
+  const processedData = useMemo(() => {
+    if (!reportData || !reportData.salesData || reportData.salesData.length === 0) {
+      console.log('No processed data because:', {
+        hasReportData: !!reportData,
+        hasSalesData: !!(reportData?.salesData),
+        salesDataLength: reportData?.salesData?.length || 0
+      })
+      return null
+    }
+    
+    console.log('Processing report data:', reportData)
+    console.log('salesData:', reportData.salesData)
+    
+    return {
+      ...reportData,
+      chartData: reportData.salesData.map(item => ({
+        date: new Date(item.date).toLocaleDateString(),
+        total: item.total,
+        count: item.count
+      }))
+    }
+  }, [reportData])
 
   const periods = [
     { value: 'today', label: 'Today' },
@@ -108,436 +131,348 @@ export default function ReportsPage() {
   }
 
   const handleExportReport = async () => {
-    if (!reportData) return
-    
-    setExporting(true)
-    
+    if (!processedData) return
+
     try {
-      // Simulate export process
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const csvContent = generateCSV(processedData)
+      downloadCSV(csvContent, `sales-report-${selectedPeriod}-${new Date().toISOString().split('T')[0]}.csv`)
       
-      // Create CSV content with real data
-      const currentDate = new Date().toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      })
-      
-      const csvContent = [
-        ['Date', 'Total Sales', 'Number of Transactions', 'Revenue'],
-        ...reportData.salesData.map(day => [
-          day.date,
-          day.count.toString(),
-          formatCurrency(day.total)
-        ]),
-        ['', '', ''],
-        ['Summary', '', ''],
-        ['Total Revenue', '', formatCurrency(reportData.summary.totalRevenue)],
-        ['Total Sales', reportData.summary.totalSales.toString(), ''],
-        ['Average Order Value', '', formatCurrency(reportData.summary.averageOrderValue)],
-        ['', '', ''],
-        ['Report Generated', currentDate, ''],
-        ['Period', selectedPeriod, '']
-      ].map(row => row.join(',')).join('\n')
-
-      // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv' })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `sales-report-${selectedPeriod}-${currentDate.replace(/\//g, '-')}.csv`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-
       addNotification({
         type: 'success',
-        title: 'Report Exported',
-        message: `Sales report for ${selectedPeriod} has been exported successfully.`,
-        duration: 4000
+        title: 'Export Successful',
+        message: 'Report has been exported successfully.',
+        duration: 3000
       })
     } catch (error) {
       addNotification({
         type: 'error',
         title: 'Export Failed',
-        message: 'Failed to export the sales report. Please try again.',
+        message: 'Failed to export report. Please try again.',
         duration: 5000
       })
-    } finally {
-      setExporting(false)
     }
   }
 
+  const generateCSV = (data: ReportData) => {
+    const headers = ['Date', 'Revenue', 'Sales Count']
+    const rows = data.salesData.map(item => [
+      item.date,
+      item.total.toString(),
+      item.count.toString()
+    ])
+    
+    return [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n')
+  }
+
+  const downloadCSV = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  }
+
   if (loading) {
+    return <LoadingSpinner />
+  }
+
+  if (error) {
     return (
-      <div className="flex items-center justify-center min-h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <Card className="bg-red-50 border-red-200">
+        <div className="p-6 text-center">
+          <h3 className="text-lg font-medium text-red-800">Error Loading Reports</h3>
+          <p className="mt-2 text-sm text-red-700">{error}</p>
+          <button
+            onClick={handleRefresh}
+            className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200"
+          >
+            Try Again
+          </button>
+        </div>
+      </Card>
+    )
+  }
+
+  // Show data even if there's no sales data but we have the summary
+  if (!processedData && reportData && reportData.summary) {
+    return (
+      <div className="space-y-6">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          <Card className="bg-blue-50 border-blue-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <CurrencyDollarIcon className="h-6 w-6 text-blue-400" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
+                    <dd className="text-lg font-medium text-gray-900">{formatCurrency(reportData.summary.totalRevenue)}</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="bg-green-50 border-green-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <ShoppingCartIcon className="h-6 w-6 text-green-400" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Total Sales</dt>
+                    <dd className="text-lg font-medium text-gray-900">{reportData.summary.totalSales}</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="bg-purple-50 border-purple-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <ArrowTrendingUpIcon className="h-6 w-6 text-purple-400" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Average Order Value</dt>
+                    <dd className="text-lg font-medium text-gray-900">{formatCurrency(reportData.summary.averageOrderValue)}</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* No chart data message */}
+        <Card>
+          <div className="p-6 text-center">
+            <p className="text-gray-500">No detailed sales data available for the selected period</p>
+            <p className="text-sm text-gray-400 mt-2">Summary data is shown above</p>
+          </div>
+        </Card>
       </div>
     )
   }
 
-  if (!reportData) {
+  if (!processedData) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-gray-900">No Data Available</h2>
-        <p className="mt-2 text-gray-600">No sales data found for the selected period.</p>
-        <button
-          onClick={handleRefresh}
-          className="mt-4 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-        >
-          <ArrowPathIcon className="h-4 w-4 mr-2" />
-          Refresh
-        </button>
-      </div>
-    )
-  }
-
-  // Early return if no data
-  if (!reportData) {
-    return (
-      <div className="space-y-3 xs:space-y-4 md:space-y-5 lg:space-y-6">
-        <div className="bg-white shadow rounded-lg p-4">
-          <div className="flex items-center justify-center h-32">
-            {loading ? (
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-2 text-sm text-gray-600">Loading reports...</p>
-              </div>
-            ) : (
-              <div className="text-center">
-                <p className="text-gray-500">No report data available</p>
-                <button 
-                  onClick={fetchReportData}
-                  className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Try Again
-                </button>
-              </div>
+      <Card>
+        <div className="p-6 text-center">
+          <p className="text-gray-500">No report data available</p>
+          <div className="mt-4 p-4 bg-gray-100 rounded text-left text-sm">
+            <p className="font-medium">Debug Info:</p>
+            <p>Loading: {loading ? 'Yes' : 'No'}</p>
+            <p>Error: {error || 'None'}</p>
+            <p>Has reportData: {reportData ? 'Yes' : 'No'}</p>
+            {reportData && (
+              <>
+                <p>Report data keys: {Object.keys(reportData).join(', ')}</p>
+                <p>Has salesData: {reportData.salesData ? 'Yes' : 'No'}</p>
+                <p>salesData length: {reportData.salesData?.length || 0}</p>
+                <pre className="mt-2 text-xs overflow-auto max-h-40">
+                  {JSON.stringify(reportData, null, 2)}
+                </pre>
+              </>
             )}
           </div>
         </div>
-      </div>
+      </Card>
     )
   }
 
-  const { salesData, topProducts, paymentBreakdown, summary } = reportData
-  const { totalRevenue, totalSales, averageOrderValue } = summary
-
   return (
-    <div className="space-y-3 xs:space-y-4 md:space-y-5 lg:space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="sm:flex sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-base xs:text-lg md:text-xl lg:text-3xl font-bold text-gray-900">Reports & Analytics</h1>
-          <p className="mt-1 xs:mt-1.5 md:mt-2 lg:mt-3 text-[10px] xs:text-xs md:text-sm lg:text-base text-gray-700">
-            Track your sales performance and business insights.
+          <h1 className="text-2xl font-bold text-gray-900">Sales Reports</h1>
+          <p className="mt-2 text-sm text-gray-700">
+            Analyze your sales performance and trends
           </p>
         </div>
-        <div className="mt-2 xs:mt-3 md:mt-4 lg:mt-6 sm:mt-0">
-          {/* Mobile S (320px) - Two column layout with long press text */}
-          <div className="grid grid-cols-2 gap-2 xs:gap-2.5 md:hidden">
-            <button 
-              onClick={handleRefresh}
-              className="group relative inline-flex items-center justify-center px-2 xs:px-2.5 py-1 xs:py-1.5 border border-gray-300 rounded-md shadow-sm text-[10px] xs:text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              title="Refresh Reports"
-            >
-              <ArrowPathIcon className="h-3 w-3 xs:h-3.5 xs:w-3.5" />
-              {/* Long press text overlay */}
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[8px] xs:text-[10px] rounded opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                Refresh
-              </div>
-            </button>
-            <button 
-              onClick={handleExportReport}
-              disabled={exporting}
-              className="group relative inline-flex items-center justify-center px-2 xs:px-2.5 py-1 xs:py-1.5 border border-gray-300 rounded-md shadow-sm text-[10px] xs:text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={exporting ? 'Exporting...' : 'Export Report'}
-            >
-              <ArrowDownTrayIcon className="h-3 w-3 xs:h-3.5 xs:w-3.5" />
-              {/* Long press text overlay */}
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[8px] xs:text-[10px] rounded opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                {exporting ? 'Exporting...' : 'Export Report'}
-              </div>
-            </button>
-          </div>
-          
-          {/* Tablet (768px) - Two column layout with long press text */}
-          <div className="hidden md:flex lg:hidden">
-            <div className="grid grid-cols-2 gap-3">
-              <button 
-                onClick={handleRefresh}
-                className="group relative inline-flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                title="Refresh Reports"
+        
+        <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+          {/* Period Selector */}
+          <div className="flex rounded-md shadow-sm">
+            {periods.map((period, index) => (
+              <button
+                key={period.value}
+                onClick={() => handlePeriodChange(period.value as 'today' | 'week' | 'month')}
+                className={`px-4 py-2 text-sm font-medium ${
+                  selectedPeriod === period.value
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                } ${
+                  index === 0 ? 'rounded-l-md' : ''
+                } ${
+                  index === periods.length - 1 ? 'rounded-r-md' : ''
+                } border border-gray-300`}
               >
-                <ArrowPathIcon className="h-4 w-4" />
-                {/* Long press text overlay */}
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                  Refresh
-                </div>
+                {period.label}
               </button>
-              <button 
-                onClick={handleExportReport}
-                disabled={exporting}
-                className="group relative inline-flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                title={exporting ? 'Exporting...' : 'Export Report'}
-              >
-                <ArrowDownTrayIcon className="h-4 w-4" />
-                {/* Long press text overlay */}
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                  {exporting ? 'Exporting...' : 'Export Report'}
-                </div>
-              </button>
-            </div>
-          </div>
-         
-         {/* Desktop (1024px+) - Full buttons with text */}
-         <div className="hidden lg:flex items-center space-x-4">
-           <button 
-             onClick={handleRefresh}
-             className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-           >
-             <ArrowPathIcon className="h-4 w-4 mr-2" />
-             Refresh
-           </button>
-           <button 
-             onClick={handleExportReport}
-             disabled={exporting}
-             className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-           >
-             <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
-             {exporting ? 'Exporting...' : 'Export Report'}
-           </button>
-         </div>
-       </div>
-     </div>
-
-     {/* Period Selector */}
-     <div className="bg-white shadow rounded-lg p-2 xs:p-3 md:p-4 lg:p-5">
-       <div className="flex space-x-1 xs:space-x-1.5 md:space-x-2 lg:space-x-3">
-         {periods.map((period) => (
-           <button
-             key={period.value}
-             onClick={() => handlePeriodChange(period.value as 'today' | 'week' | 'month')}
-             className={`px-2 xs:px-2.5 md:px-4 lg:px-5 py-1 xs:py-1.5 md:py-2 lg:py-2.5 text-[10px] xs:text-xs md:text-sm lg:text-base font-medium rounded-md transition-colors ${
-               selectedPeriod === period.value
-                 ? 'bg-blue-600 text-white'
-                 : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
-             }`}
-           >
-             {period.label}
-           </button>
-         ))}
-       </div>
-     </div>
-
-     {/* Chart Type Selector */}
-     <div className="bg-white shadow rounded-lg p-2 xs:p-3 md:p-4 lg:p-5">
-       <div className="flex items-center justify-between">
-         <div className="flex items-center space-x-2">
-           <ChartBarIcon className="h-4 w-4 text-gray-500" />
-           <span className="text-sm font-medium text-gray-700">Chart Type</span>
-         </div>
-         <div className="flex space-x-1 xs:space-x-1.5 md:space-x-2 lg:space-x-3">
-           <button
-             onClick={() => setChartType('line')}
-             className={`px-2 xs:px-2.5 md:px-4 lg:px-5 py-1 xs:py-1.5 md:py-2 lg:py-2.5 text-[10px] xs:text-xs md:text-sm lg:text-base font-medium rounded-md transition-colors flex items-center space-x-1 ${
-               chartType === 'line'
-                 ? 'bg-blue-600 text-white'
-                 : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
-             }`}
-           >
-             <ChartBarSquareIcon className="h-3 w-3 xs:h-3.5 xs:w-3.5 md:h-4 md:w-4" />
-             <span>Line</span>
-           </button>
-           <button
-             onClick={() => setChartType('bar')}
-             className={`px-2 xs:px-2.5 md:px-4 lg:px-5 py-1 xs:py-1.5 md:py-2 lg:py-2.5 text-[10px] xs:text-xs md:text-sm lg:text-base font-medium rounded-md transition-colors flex items-center space-x-1 ${
-               chartType === 'bar'
-                 ? 'bg-blue-600 text-white'
-                 : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
-             }`}
-           >
-             <ChartBarIcon className="h-3 w-3 xs:h-3.5 xs:w-3.5 md:h-4 md:w-4" />
-             <span>Bar</span>
-           </button>
-         </div>
-       </div>
-     </div>
-
-     {/* Key Metrics */}
-     <div className="grid grid-cols-1 gap-2 xs:gap-3 md:gap-4 lg:gap-6 sm:grid-cols-2 lg:grid-cols-4">
-       <div className="bg-white overflow-hidden shadow rounded-lg">
-         <div className="p-2 xs:p-3 md:p-4 lg:p-5">
-           <div className="flex items-center">
-             <div className="flex-shrink-0">
-               <CurrencyDollarIcon className="h-3.5 w-3.5 xs:h-4 xs:w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 text-green-400" />
-             </div>
-             <div className="ml-2 xs:ml-3 md:ml-4 lg:ml-5 w-0 flex-1">
-               <dl>
-                 <dt className="text-[10px] xs:text-xs md:text-sm lg:text-base font-medium text-gray-500 truncate">Total Revenue</dt>
-                 <dd className="text-xs xs:text-sm md:text-lg lg:text-xl font-medium text-gray-900">{formatCurrency(totalRevenue)}</dd>
-               </dl>
-             </div>
-           </div>
-         </div>
-       </div>
-
-       <div className="bg-white overflow-hidden shadow rounded-lg">
-         <div className="p-2 xs:p-3 md:p-4 lg:p-5">
-           <div className="flex items-center">
-             <div className="flex-shrink-0">
-               <ShoppingBagIcon className="h-3.5 w-3.5 xs:h-4 xs:w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 text-blue-400" />
-             </div>
-             <div className="ml-2 xs:ml-3 md:ml-4 lg:ml-5 w-0 flex-1">
-               <dl>
-                 <dt className="text-[10px] xs:text-xs md:text-sm lg:text-base font-medium text-gray-500 truncate">Total Sales</dt>
-                 <dd className="text-xs xs:text-sm md:text-lg lg:text-xl font-medium text-gray-900">{totalSales}</dd>
-               </dl>
-             </div>
-           </div>
-         </div>
-       </div>
-
-       <div className="bg-white overflow-hidden shadow rounded-lg">
-         <div className="p-2 xs:p-3 md:p-4 lg:p-5">
-           <div className="flex items-center">
-             <div className="flex-shrink-0">
-               <ArrowTrendingUpIcon className="h-3.5 w-3.5 xs:h-4 xs:w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 text-purple-400" />
-             </div>
-             <div className="ml-2 xs:ml-3 md:ml-4 lg:ml-5 w-0 flex-1">
-               <dl>
-                 <dt className="text-[10px] xs:text-xs md:text-sm lg:text-base font-medium text-gray-500 truncate">Avg Order Value</dt>
-                 <dd className="text-xs xs:text-sm md:text-lg lg:text-xl font-medium text-gray-900">{formatCurrency(averageOrderValue)}</dd>
-               </dl>
-             </div>
-           </div>
-         </div>
-       </div>
-
-       <div className="bg-white overflow-hidden shadow rounded-lg">
-         <div className="p-2 xs:p-3 md:p-4 lg:p-5">
-           <div className="flex items-center">
-             <div className="flex-shrink-0">
-               <CalendarIcon className="h-3.5 w-3.5 xs:h-4 xs:w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 text-orange-400" />
-             </div>
-             <div className="ml-2 xs:ml-3 md:ml-4 lg:ml-5 w-0 flex-1">
-               <dl>
-                 <dt className="text-[10px] xs:text-xs md:text-sm lg:text-base font-medium text-gray-500 truncate">Period</dt>
-                 <dd className="text-xs xs:text-sm md:text-lg lg:text-xl font-medium text-gray-900 capitalize">{selectedPeriod}</dd>
-               </dl>
-             </div>
-           </div>
-         </div>
-       </div>
-     </div>
-
-     {/* Sales Trend Chart */}
-     <div className="bg-white shadow rounded-lg">
-       <div className="px-3 xs:px-4 md:px-5 lg:px-6 py-3 xs:py-4 md:py-5 lg:py-6">
-         <div className="flex items-center justify-between mb-4">
-           <h3 className="text-[10px] xs:text-xs md:text-base lg:text-xl leading-6 font-medium text-gray-900">
-             Sales Trend Chart
-           </h3>
-           <div className="flex items-center space-x-2 text-xs text-gray-500">
-             <div className="flex items-center space-x-1">
-               <div className="w-3 h-3 bg-blue-500 rounded"></div>
-               <span>Revenue</span>
-             </div>
-             <div className="flex items-center space-x-1">
-               <div className="w-3 h-3 bg-green-500 rounded"></div>
-               <span>Sales Count</span>
-             </div>
-           </div>
-         </div>
-         
-         {salesData && salesData.length > 0 ? (
-           <SalesTrendChart 
-             data={salesData} 
-             period={selectedPeriod} 
-             chartType={chartType}
-           />
-         ) : (
-           <div className="h-80 flex items-center justify-center">
-             <div className="text-center">
-               <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                 <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                 </svg>
-               </div>
-               <p className="text-gray-500 text-sm">No sales data available for {selectedPeriod}</p>
-               <p className="text-gray-400 text-xs mt-1">Try selecting a different time period</p>
-             </div>
-           </div>
-         )}
-       </div>
-     </div>
-
-    {/* Top Products */}
-    <div className="bg-white shadow rounded-lg">
-      <div className="px-3 xs:px-4 md:px-5 lg:px-6 py-3 xs:py-4 md:py-5 lg:py-6">
-        <h3 className="text-sm xs:text-base md:text-lg lg:text-xl leading-6 font-medium text-gray-900 mb-3 xs:mb-4 md:mb-4 lg:mb-5">
-          Top Selling Products
-        </h3>
-        {topProducts.length > 0 ? (
-          <div className="space-y-2.5 xs:space-y-3 md:space-y-3.5 lg:space-y-4">
-            {topProducts.map((product, index) => (
-              <div key={product.name} className="flex items-center justify-between p-2.5 xs:p-3 md:p-3 lg:p-3.5 bg-gray-50 rounded-lg">
-                <div className="flex items-center">
-                  <div className="w-6 h-6 xs:w-7 xs:h-7 md:w-8 md:h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xs xs:text-sm md:text-sm lg:text-base">
-                    {index + 1}
-                  </div>
-                  <div className="ml-2.5 xs:ml-3 md:ml-3 lg:ml-3.5">
-                    <h4 className="text-xs xs:text-sm md:text-sm lg:text-base font-medium text-gray-900">{product.name}</h4>
-                    <p className="text-xs xs:text-xs md:text-xs lg:text-sm text-gray-500">{product.quantity} units sold</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs xs:text-sm md:text-sm lg:text-base font-medium text-gray-900">{formatCurrency(product.revenue)}</p>
-                  <p className="text-xs xs:text-xs md:text-xs lg:text-sm text-gray-500">{((product.revenue / totalRevenue) * 100).toFixed(1)}%</p>
-                </div>
-              </div>
             ))}
           </div>
-        ) : (
-          <p className="text-gray-500 text-center py-8">
-            No product sales data available for {selectedPeriod}
-          </p>
-        )}
-      </div>
-    </div>
 
-    {/* Payment Methods */}
-    <div className="bg-white shadow rounded-lg">
-      <div className="px-3 xs:px-4 md:px-5 lg:px-6 py-3 xs:py-4 md:py-5 lg:py-6">
-        <h3 className="text-sm xs:text-base md:text-lg lg:text-xl leading-6 font-medium text-gray-900 mb-3 xs:mb-4 md:mb-4 lg:mb-5">
-          Payment Methods
-        </h3>
-        {paymentBreakdown.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 xs:gap-4 md:gap-4 lg:gap-5">
-            {paymentBreakdown.map((item) => {
-              const percentage = totalRevenue > 0 ? (item.amount / totalRevenue) * 100 : 0
-              const color = item.method === 'Cash' ? 'bg-green-500' : item.method === 'Card' ? 'bg-blue-500' : 'bg-purple-500'
-              
-              return (
-                <div key={item.method} className="text-center">
-                  <div className={`w-12 h-12 xs:w-14 xs:h-14 md:w-16 md:h-16 ${color} rounded-full mx-auto mb-2 xs:mb-2.5 md:mb-3 lg:mb-3.5 flex items-center justify-center`}>
-                    <span className="text-white font-bold text-sm xs:text-base md:text-base lg:text-lg">{percentage.toFixed(1)}%</span>
-                  </div>
-                  <h4 className="text-xs xs:text-sm md:text-sm lg:text-base font-medium text-gray-900">{item.method}</h4>
-                  <p className="text-sm xs:text-base md:text-lg lg:text-xl font-bold text-gray-900">{formatCurrency(item.amount)}</p>
-                  <p className="text-xs xs:text-xs md:text-xs lg:text-sm text-gray-500">{item.count} transactions</p>
-                </div>
-              )
-            })}
+          {/* Chart Type Toggle */}
+          <div className="flex rounded-md shadow-sm">
+            <button
+              onClick={() => setChartType('line')}
+              className={`px-3 py-2 text-sm font-medium ${
+                chartType === 'line'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              } rounded-l-md border border-gray-300`}
+            >
+              Line
+            </button>
+            <button
+              onClick={() => setChartType('bar')}
+              className={`px-3 py-2 text-sm font-medium ${
+                chartType === 'bar'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              } rounded-r-md border border-gray-300`}
+            >
+              Bar
+            </button>
           </div>
-        ) : (
-          <p className="text-gray-500 text-center py-8">
-            No payment method data available for {selectedPeriod}
-          </p>
-        )}
+
+          {/* Action Buttons */}
+          <div className="flex space-x-2">
+            <button
+              onClick={handleRefresh}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <ArrowPathIcon className="h-4 w-4 mr-2" />
+              Refresh
+            </button>
+            <button
+              onClick={handleExportReport}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
+              Export
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <CurrencyDollarIcon className="h-6 w-6 text-green-400" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
+                                     <dd className="text-lg font-medium text-gray-900">{formatCurrency(processedData.summary.totalRevenue)}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <ShoppingCartIcon className="h-6 w-6 text-blue-400" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Total Sales</dt>
+                                     <dd className="text-lg font-medium text-gray-900">{processedData.summary.totalSales}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <ArrowTrendingUpIcon className="h-6 w-6 text-purple-400" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Average Order Value</dt>
+                                     <dd className="text-lg font-medium text-gray-900">{formatCurrency(processedData.summary.averageOrderValue)}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <ChartBarIcon className="h-6 w-6 text-indigo-400" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Period</dt>
+                  <dd className="text-lg font-medium text-gray-900 capitalize">{selectedPeriod}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Chart */}
+      <Card>
+        <div className="p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Sales Trend</h3>
+          <SalesTrendChart 
+            data={processedData.chartData}
+            period={selectedPeriod}
+            chartType={chartType}
+          />
+        </div>
+      </Card>
+
+      {/* Data Table */}
+      <Card>
+        <div className="p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Detailed Data</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sales Count</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {processedData.chartData.map((item, index) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.date}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(item.total)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Card>
     </div>
-  </div>
   )
 }

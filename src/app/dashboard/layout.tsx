@@ -1,9 +1,10 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { ReactNode, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { AuthErrorBoundary } from '@/components/AuthErrorBoundary'
 
 import { 
   HomeIcon, 
@@ -23,7 +24,32 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname()
-  const { user } = useAuth()
+  const router = useRouter()
+  const { user, loading } = useAuth()
+  
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login')
+    }
+  }, [user, loading, router])
+  
+  // Show loading state while authentication is being checked
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render anything while redirecting
+  if (!user) {
+    return null
+  }
   
   // Define navigation items with role restrictions
   const allNavigation = [
@@ -40,13 +66,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   // Filter navigation based on user role
   const navigation = allNavigation.filter(item => 
-    item.roles.includes(user?.role || 'USER')
+    item.roles.includes(user.role || 'USER')
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile Navigation */}
-      <div className="lg:hidden">
+    <AuthErrorBoundary>
+      <div className="min-h-screen bg-gray-50">
+        {/* Mobile Navigation */}
+        <div className="lg:hidden">
         <div className="mobile-nav-container fixed bottom-0 left-0 right-0 z-50 shadow-lg">
           <nav className="flex justify-around py-2 xs:py-2.5 md:py-3">
             {navigation.map((item) => {
@@ -118,5 +145,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Mobile Content Padding */}
       <div className="lg:hidden pb-16 xs:pb-18 md:pb-20 sm:pb-20" />
     </div>
+    </AuthErrorBoundary>
   )
 }

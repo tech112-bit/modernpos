@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "@/lib/cache-globals"; // Initialize global cache functions
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
+import { AuthErrorBoundary } from "@/components/AuthErrorBoundary";
 
 export const metadata: Metadata = {
   title: "Modern POS System",
@@ -18,15 +20,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased">
-        <AuthProvider>
-          <NotificationProvider>
-            <CurrencyProvider>
-              <SettingsProvider>
-                {children}
-              </SettingsProvider>
-            </CurrencyProvider>
-          </NotificationProvider>
-        </AuthProvider>
+        <AuthErrorBoundary>
+          <AuthProvider>
+            <NotificationProvider>
+              <CurrencyProvider>
+                <SettingsProvider>
+                  {children}
+                </SettingsProvider>
+              </CurrencyProvider>
+            </NotificationProvider>
+          </AuthProvider>
+        </AuthErrorBoundary>
       </body>
     </html>
   );

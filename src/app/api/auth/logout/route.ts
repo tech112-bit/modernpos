@@ -1,22 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { clearAuthCookies } from '@/lib/secure-cookies'
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
+    // Create response
     const response = NextResponse.json(
       { message: 'Logout successful' },
       { status: 200 }
     )
 
-    // Clear the auth token cookie
-    response.cookies.set('token', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 0, // Expire immediately
-      path: '/'
-    })
+    // Clear all authentication cookies using DRY utility
+    clearAuthCookies(response)
 
+    console.log('🍪 Authentication cookies cleared successfully')
     return response
+
   } catch (error) {
     console.error('Logout error:', error)
     return NextResponse.json(

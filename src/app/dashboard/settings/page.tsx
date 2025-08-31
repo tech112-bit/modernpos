@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useSettings } from '@/contexts/SettingsContext'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { useAuth } from '@/contexts/AuthContext'
+import { Card } from '@/components/ui'
 import PasswordResetModal from '@/components/PasswordResetModal'
 
 import { 
@@ -15,7 +16,6 @@ import {
   ShieldCheckIcon,
   EnvelopeIcon,
   ExclamationTriangleIcon,
-  CheckIcon,
   InformationCircleIcon,
   KeyIcon,
 } from '@heroicons/react/24/outline'
@@ -32,8 +32,6 @@ export default function SettingsPage() {
     user: null
   })
 
-
-  
   const handleClosePasswordResetModal = () => {
     setPasswordResetModal({
       isOpen: false,
@@ -62,8 +60,6 @@ export default function SettingsPage() {
     })
   }
 
-
-
   return (
     <div className="space-y-4 xs:space-y-5 sm:space-y-6">
       {/* Header */}
@@ -79,7 +75,7 @@ export default function SettingsPage() {
       {/* Settings Sections */}
       <div className="space-y-4 xs:space-y-5 sm:space-y-6">
         {/* Profile Section */}
-        <div className="bg-white shadow rounded-lg">
+        <Card>
           <div className="px-2.5 xs:px-3 md:px-4 lg:px-6 py-2.5 xs:py-3 md:py-4 lg:py-6">
             <div className="flex items-center mb-2.5 xs:mb-3 md:mb-4 lg:mb-5">
               <UserIcon className="h-4 w-4 xs:h-5 xs:w-5 md:h-6 md:w-6 text-blue-500 mr-2 xs:mr-2.5 md:mr-3" />
@@ -119,8 +115,6 @@ export default function SettingsPage() {
                 </div>
               </div>
               
-
-              
               {/* Additional Profile Info */}
               <div className="grid grid-cols-1 xs:grid-cols-2 gap-2.5 xs:gap-3 md:gap-4">
                 <div className="flex items-center space-x-2 xs:space-x-3">
@@ -154,8 +148,8 @@ export default function SettingsPage() {
                 </div>
               </div>
               
-                {/* Password Reset Button */}
-                <div className="pt-2 xs:pt-3 md:pt-4 border-t border-gray-200">
+              {/* Password Reset Button */}
+              <div className="pt-2 xs:pt-3 md:pt-4 border-t border-gray-200">
                 <button
                   onClick={() => setPasswordResetModal({
                     isOpen: true,
@@ -192,11 +186,11 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Low Stock Settings - Only for non-admin users */}
         {user && user.role !== 'ADMIN' && (
-          <div className="bg-white shadow rounded-lg">
+          <Card>
             <div className="px-2.5 xs:px-3 md:px-4 lg:px-6 py-2.5 xs:py-3 md:py-4 lg:py-6">
               <div className="flex items-center mb-2.5 xs:mb-3 md:mb-4 lg:mb-5">
                 <ExclamationTriangleIcon className="h-4 w-4 xs:h-5 xs:w-5 md:h-6 md:w-6 text-orange-500 mr-2 xs:mr-2.5 md:mr-3" />
@@ -231,12 +225,12 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
         )}
 
         {/* System Information - Only for non-admin users */}
         {user && user.role !== 'ADMIN' && (
-          <div className="bg-white shadow rounded-lg">
+          <Card>
             <div className="px-2.5 xs:px-3 md:px-4 lg:px-6 py-2.5 xs:py-3 md:py-4 lg:py-6">
               <div className="flex items-center mb-2.5 xs:mb-3 md:mb-4 lg:mb-5">
                 <InformationCircleIcon className="h-4 w-4 xs:h-5 xs:w-5 md:h-6 md:w-6 text-blue-500 mr-2 xs:mr-2.5 md:mr-3" />
@@ -244,105 +238,102 @@ export default function SettingsPage() {
               </div>
               
               <div className="space-y-2.5 xs:space-y-3 md:space-y-4">
-                               <div className="grid grid-cols-1 xs:grid-cols-2 gap-2.5 xs:gap-3 md:gap-4">
-                 <div className="flex items-center space-x-2 xs:space-x-3">
-                   <CogIcon className="h-3.5 w-3.5 xs:h-4 xs:w-4 md:h-5 md:w-5 text-gray-400 flex-shrink-0" />
-                   <div>
-                     <p className="text-xs xs:text-sm font-medium text-gray-500">System Version</p>
-                     <p className="text-xs xs:text-sm md:text-base font-medium text-gray-900">v2.1.0</p>
-                   </div>
-                 </div>
-                 
-                 <div className="flex items-center space-x-2 xs:space-x-3">
-                   <UserIcon className="h-3.5 w-3.5 xs:h-4 xs:w-4 md:h-5 md:w-5 text-gray-400 flex-shrink-0" />
-                   <div>
-                     <p className="text-xs xs:text-sm font-medium text-gray-500">User Role</p>
-                     <p className="text-xs xs:text-sm md:text-base font-medium text-gray-900 capitalize">{user?.role || 'User'}</p>
-                   </div>
-                 </div>
-               </div>
+                <div className="grid grid-cols-1 xs:grid-cols-2 gap-2.5 xs:gap-3 md:gap-4">
+                  <div className="flex items-center space-x-2 xs:space-x-3">
+                    <CogIcon className="h-3.5 w-3.5 xs:h-4 xs:w-4 md:h-5 md:w-5 text-gray-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs xs:text-sm font-medium text-gray-500">System Version</p>
+                      <p className="text-xs xs:text-sm md:text-base font-medium text-gray-900">v2.1.0</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2 xs:space-x-3">
+                    <UserIcon className="h-3.5 w-3.5 xs:h-4 xs:w-4 md:h-5 md:w-5 text-gray-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs xs:text-sm font-medium text-gray-500">User Role</p>
+                      <p className="text-xs xs:text-sm md:text-base font-medium text-gray-900 capitalize">{user?.role || 'User'}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Notification Settings */}
-        <div className="bg-white shadow rounded-lg">
+        <Card>
           <div className="px-2.5 xs:px-3 md:px-4 lg:px-6 py-2.5 xs:py-3 md:py-4 lg:py-6">
             <div className="flex items-center mb-2.5 xs:mb-3 md:mb-4 lg:mb-5">
               <BellIcon className="h-4 w-4 xs:h-5 xs:w-5 md:h-6 md:w-6 text-blue-500 mr-2 xs:mr-2.5 md:mr-3" />
               <h3 className="text-sm xs:text-base md:text-lg lg:text-xl font-medium text-gray-900">Notifications</h3>
             </div>
             
-                          <div className="space-y-2.5 xs:space-y-3 md:space-y-4">
+            <div className="space-y-2.5 xs:space-y-3 md:space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs xs:text-sm md:text-base font-medium text-gray-700">Sales Notifications</p>
+                  <p className="text-xs xs:text-sm text-gray-500 mt-1">
+                    Receive alerts for new sales and transactions
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.notifications.sales}
+                    onChange={(e) => updateSettings({
+                      notifications: { ...settings.notifications, sales: e.target.checked }
+                    })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-8 h-4 xs:w-9 xs:h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] xs:after:top-[2px] after:left-[1px] xs:after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 xs:after:h-4 xs:after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
 
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs xs:text-sm md:text-base font-medium text-gray-700">Inventory Notifications</p>
+                  <p className="text-xs xs:text-sm text-gray-500 mt-1">
+                    Receive alerts for inventory changes and updates
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.notifications.inventory}
+                    onChange={(e) => updateSettings({
+                      notifications: { ...settings.notifications, inventory: e.target.checked }
+                    })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-8 h-4 xs:w-9 xs:h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] xs:after:top-[2px] after:left-[1px] xs:after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 xs:after:h-4 xs:after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              {/* Low Stock Notifications - Only for non-admin users */}
+              {user && user.role !== 'ADMIN' && (
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs xs:text-sm md:text-base font-medium text-gray-700">Sales Notifications</p>
+                    <p className="text-xs xs:text-sm md:text-base font-medium text-gray-700">Low Stock Notifications</p>
                     <p className="text-xs xs:text-sm text-gray-500 mt-1">
-                      Receive alerts for new sales and transactions
+                      Receive alerts when products are running low on stock
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={settings.notifications.sales}
+                      checked={settings.notifications.lowStock}
                       onChange={(e) => updateSettings({
-                        notifications: { ...settings.notifications, sales: e.target.checked }
+                        notifications: { ...settings.notifications, lowStock: e.target.checked }
                       })}
                       className="sr-only peer"
                     />
                     <div className="w-8 h-4 xs:w-9 xs:h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] xs:after:top-[2px] after:left-[1px] xs:after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 xs:after:h-4 xs:after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                   </label>
                 </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs xs:text-sm md:text-base font-medium text-gray-700">Inventory Notifications</p>
-                    <p className="text-xs xs:text-sm text-gray-500 mt-1">
-                      Receive alerts for inventory changes and updates
-                    </p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.notifications.inventory}
-                      onChange={(e) => updateSettings({
-                        notifications: { ...settings.notifications, inventory: e.target.checked }
-                      })}
-                      className="sr-only peer"
-                    />
-                    <div className="w-8 h-4 xs:w-9 xs:h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] xs:after:top-[2px] after:left-[1px] xs:after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 xs:after:h-4 xs:after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                {/* Low Stock Notifications - Only for non-admin users */}
-                {user && user.role !== 'ADMIN' && (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs xs:text-sm md:text-base font-medium text-gray-700">Low Stock Notifications</p>
-                      <p className="text-xs xs:text-sm text-gray-500 mt-1">
-                        Receive alerts when products are running low on stock
-                      </p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={settings.notifications.lowStock}
-                        onChange={(e) => updateSettings({
-                          notifications: { ...settings.notifications, lowStock: e.target.checked }
-                        })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-8 h-4 xs:w-9 xs:h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] xs:after:top-[2px] after:left-[1px] xs:after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 xs:after:h-4 xs:after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                )}
+              )}
             </div>
           </div>
-        </div>
-
-
+        </Card>
       </div>
       
       {/* Password Reset Modal */}

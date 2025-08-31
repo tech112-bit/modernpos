@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { parse } from 'csv-parse'
+import { extractTokenFromCookies } from '@/lib/secure-cookies'
 
 // POST /api/products/import - Import products from CSV
 export async function POST(request: NextRequest) {
   try {
     // Get user info from token first
-    const authToken = request.cookies.get('token')?.value
+    const authToken = extractTokenFromCookies(request)
     if (!authToken) {
       return NextResponse.json(
         { error: 'Not authenticated' },

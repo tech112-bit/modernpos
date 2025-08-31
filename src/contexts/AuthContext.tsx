@@ -1,7 +1,7 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
+import { createContext, useContext, ReactNode } from 'react'
+import { useSmartAuth } from '@/hooks'
 
 interface User {
   id: string
@@ -20,73 +20,22 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const router = useRouter()
-
-  const checkAuth = async () => {
-    try {
-      const response = await fetch('/api/auth/me')
-      if (response.ok) {
-        const userData = await response.json()
-        setUser(userData.user)
-      } else {
-        setUser(null)
-      }
-    } catch (error) {
-      setUser(null)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const login = async (email: string, password: string): Promise<boolean> => {
-    try {
-      console.log('Attempting login for:', email)
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      })
-
-      console.log('Login response status:', response.status)
-      
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Login successful, user data:', data)
-        setUser(data.user)
-        return true
-      } else {
-        const errorData = await response.json()
-        console.log('Login failed:', errorData)
-        return false
-      }
-    } catch (error) {
-      console.error('Login error:', error)
-      return false
-    }
-  }
-
-  const logout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-      setUser(null)
-      router.push('/login')
-    } catch (error) {
-      console.error('Logout error:', error)
-    }
-  }
-
-  useEffect(() => {
-    checkAuth()
-  }, [])
+  const {
+    user,
+    loading,
+    login,
+    logout,
+    checkAuth,
+    refreshUser
+  } = useSmartAuth()
 
   const value = {
     user,
     loading,
     login,
     logout,
-    checkAuth
+    checkAuth,
+    refreshUser
   }
 
   return (

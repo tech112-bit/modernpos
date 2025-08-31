@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useMemo } from 'react'
 import { useSettings } from '@/contexts/SettingsContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
+import { useSmartDataFetching } from '@/hooks'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 
 interface LowStockProduct {
@@ -12,46 +13,37 @@ interface LowStockProduct {
   price: number | string
 }
 
+interface ProductsApiResponse {
+  products: LowStockProduct[]
+}
+
 export default function LowStockAlert() {
   const { settings } = useSettings()
   const { formatCurrency } = useCurrency()
-  const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([])
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchLowStockProducts()
-  }, [settings.lowStockThreshold])
+  // Use smart data fetching with caching
+  const { 
+    data: productsData, 
+    loading 
+  } = useSmartDataFetching<ProductsApiResponse>({
+    endpoint: '/api/products',
+    autoFetch: true,
+    cacheDuration: 300000, // Cache for 5 minutes
+    debounceDelay: 1000, // Debounce API calls
+    skipCache: false
+  })
 
-  const fetchLowStockProducts = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch('/api/products')
-      if (response.ok) {
-        const data = await response.json()
-        const lowStock = data.products.filter((product: LowStockProduct) => 
-          product.stock <= settings.lowStockThreshold
-        )
-        setLowStockProducts(lowStock)
-      }
-    } catch (error) {
-      console.error('Error fetching low stock products:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <div className="animate-pulse">
-          <div className="h-4 bg-yellow-200 rounded w-1/3 mb-2"></div>
-          <div className="h-3 bg-yellow-200 rounded w-1/2"></div>
-        </div>
-      </div>
+  // Filter low stock products using useMemo to prevent recalculation
+  const lowStockProducts = useMemo(() => {
+    if (!productsData?.products) return []
+    
+    return productsData.products.filter(product => 
+      product.stock <= settings.lowStockThreshold
     )
-  }
+  }, [productsData?.products, settings.lowStockThreshold])
 
-  if (lowStockProducts.length === 0 || !settings.notifications.lowStock) {
+  // Don't render if loading, no low stock products, or notifications disabled
+  if (loading || lowStockProducts.length === 0 || !settings.notifications.lowStock) {
     return null
   }
 

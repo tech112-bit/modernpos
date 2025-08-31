@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import bcrypt from 'bcryptjs'
+import { extractTokenFromCookies } from '@/lib/secure-cookies'
 import { verifyToken } from '@/lib/auth'
 
 // Helper function to get user from token
 async function getAdminUser(request: NextRequest) {
   try {
-    // Try to get token from authorization header first (set by middleware)
-    let token = request.headers.get('authorization')?.replace('Bearer ', '')
-    
-    // Fallback to cookies if header not available
-    if (!token) {
-      token = request.cookies.get('token')?.value
-    }
+    // Get token from secure cookies using our new utility
+    const token = extractTokenFromCookies(request)
     
     if (!token) {
-      console.log('❌ getAdminUser: No token found in headers or cookies')
+      console.log('❌ getAdminUser: No token found in cookies')
       return { error: 'No token provided', status: 401 }
     }
 

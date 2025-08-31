@@ -42,6 +42,31 @@ interface CartItem {
   stock: number
 }
 
+// Client-side only currency symbol component to prevent hydration errors
+function CurrencySymbol() {
+  const { formatCurrency } = useCurrency()
+  const [currencySymbol, setCurrencySymbol] = useState('')
+  const [isMMK, setIsMMK] = useState(false)
+
+  useEffect(() => {
+    // Only run on client side to prevent hydration mismatch
+    const symbol = formatCurrency(0).replace(/[\d.,]/g, '')
+    setCurrencySymbol(symbol)
+    setIsMMK(symbol.includes('MMK'))
+  }, [formatCurrency])
+
+  // Return empty on server side to prevent hydration mismatch
+  if (typeof window === 'undefined') {
+    return <span>...</span>
+  }
+
+  return (
+    <span>
+      {currencySymbol}
+    </span>
+  )
+}
+
 export default function NewSalePage() {
   const router = useRouter()
   const { addNotification } = useNotifications()
@@ -56,11 +81,22 @@ export default function NewSalePage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isMMK, setIsMMK] = useState(false)
 
   useEffect(() => {
     fetchProducts()
     fetchCustomers()
-  }, [])
+    
+    // Check if MMK currency is selected (client-side only)
+    const checkMMK = () => {
+      const symbol = formatCurrency(0).replace(/[\d.,]/g, '')
+      setIsMMK(symbol.includes('MMK'))
+    }
+    
+    // Small delay to ensure currency context is loaded
+    const timer = setTimeout(checkMMK, 100)
+    return () => clearTimeout(timer)
+  }, [formatCurrency])
 
   const fetchProducts = async () => {
     try {
@@ -350,14 +386,17 @@ export default function NewSalePage() {
 
             {/* Discount */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Discount ($)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Discount (<CurrencySymbol />)
+              </label>
               <input
                 type="number"
                 min="0"
-                step="0.01"
+                step={isMMK ? "1" : "0.01"}
                 value={discount}
                 onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
                 className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder={isMMK ? "0" : "0.00"}
               />
             </div>
           </div>
@@ -406,8 +445,8 @@ export default function NewSalePage() {
                         </button>
                       </div>
                                              <span className="font-medium text-gray-900">
-                         {formatCurrency(item.price * item.quantity)}
-                       </span>
+                        {formatCurrency(item.price * item.quantity)}
+                      </span>
                     </div>
                   </div>
                 ))}

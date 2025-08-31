@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { useAuth } from '@/contexts/AuthContext'
 import CategoryImport from '@/components/CategoryImport'
+import { LoadingSpinner, Card } from '@/components/ui'
+import { useSmartDataFetching, useDeleteConfirmation, useSearch } from '@/hooks'
 import {
   PlusIcon,
   PencilIcon,
@@ -24,266 +26,298 @@ interface Category {
 export default function CategoriesPage() {
   const { addNotification } = useNotifications()
   const { user } = useAuth()
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (user) {
-      fetchCategories()
-    }
-  }, [user])
+  // Use smart data fetching with caching
+  const { 
+    data: categoriesData, 
+    loading, 
+    error, 
+    refetch: fetchCategories 
+  } = useSmartDataFetching<Category[]>({
+    endpoint: '/api/categories',
+    autoFetch: !!user,
+    cacheDuration: 300000, // Cache for 5 minutes
+    debounceDelay: 500 // Debounce API calls
+  })
 
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch('/api/categories')
-      if (response.ok) {
-        const data = await response.json()
-        setCategories(data)
-      } else {
-        setError('Failed to fetch categories')
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error)
-      setError('Failed to fetch categories')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const categories = categoriesData || []
+
+  // Use the new search hook
+  const { 
+    searchTerm, 
+    filteredData: filteredCategories, 
+    handleSearchChange 
+  } = useSearch<Category>({
+    data: categories,
+    searchFields: ['name']
+  })
+
+  // Use the new delete confirmation hook
+  const { confirmDelete } = useDeleteConfirmation()
 
   const handleDelete = async (categoryId: string, categoryName: string) => {
-    addNotification({
-      type: 'warning',
-      title: 'Confirm Delete',
-      message: `Are you sure you want to delete the category "${categoryName}"? This action cannot be undone.`,
-      duration: 0,
-      actions: [
-        {
-          label: 'Cancel',
-          onClick: () => {},
-          variant: 'secondary'
-        },
-        {
-          label: 'Delete',
-          onClick: () => performDelete(categoryId, categoryName),
-          variant: 'danger'
+    confirmDelete(
+      categoryId,
+      categoryName,
+      async (id: string) => {
+        setDeleteLoading(id)
+        
+        try {
+          const response = await fetch(`/api/categories/${id}`, {
+            method: 'DELETE'
+          })
+
+          if (response.ok) {
+            // Update the data in the hook
+            fetchCategories()
+            
+            addNotification({
+              type: 'success',
+              title: 'Category Deleted',
+              message: 'Category has been deleted successfully.',
+              duration: 4000
+            })
+          } else {
+            const errorData = await response.json()
+            throw new Error(errorData.error || 'Failed to delete category')
+          }
+        } finally {
+          setDeleteLoading(null)
         }
-      ]
-    })
-  }
-
-  const performDelete = async (categoryId: string, categoryName: string) => {
-
-    setDeleteLoading(categoryId)
-    setError('')
-
-    try {
-      const response = await fetch(`/api/categories/${categoryId}`, {
-        method: 'DELETE'
-      })
-
-      if (response.ok) {
-        // Remove category from state
-        setCategories(categories.filter(cat => cat.id !== categoryId))
-        addNotification({
-          type: 'success',
-          title: 'Category Deleted',
-          message: 'Category has been deleted successfully.',
-          duration: 4000
-        })
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Failed to delete category')
-        addNotification({
-          type: 'error',
-          title: 'Delete Failed',
-          message: errorData.error || 'Failed to delete category',
-          duration: 5000
-        })
+      },
+      {
+        onError: (errorMessage) => {
+          addNotification({
+            type: 'error',
+            title: 'Delete Failed',
+            message: errorMessage,
+            duration: 5000
+          })
+        }
       }
-    } catch (err) {
-      setError('Failed to delete category. Please try again.')
-      addNotification({
-        type: 'error',
-        title: 'Delete Failed',
-        message: 'Failed to delete category. Please try again.',
-        duration: 5000
-      })
-    } finally {
-      setDeleteLoading(null)
-    }
-  }
-
-  const filteredCategories = categories.filter(category =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
     )
   }
 
+  if (loading) {
+    return <LoadingSpinner />
+  }
+
   return (
-    <div className="space-y-3 xs:space-y-4 md:space-y-5 lg:space-y-6">
-      {/* Header */}
-      <div className="sm:flex sm:items-center sm:justify-between">
+    <div className="space-y-4 px-3 sm:px-0">
+      {/* Header - Different layouts for mobile vs tablet/desktop */}
+      <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
         <div>
-          <h1 className="text-base xs:text-lg md:text-xl lg:text-2xl font-bold text-gray-900">Categories</h1>
-          <p className="mt-1 xs:mt-1.5 md:mt-2 lg:mt-2 text-[10px] xs:text-xs md:text-sm lg:text-sm text-gray-700">
-            Manage product categories and organization.
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl lg:text-3xl">Categories</h1>
+          <p className="mt-1 text-sm text-gray-600 sm:text-base lg:text-lg">
+            Manage product categories
           </p>
         </div>
-        <div className="mt-2 xs:mt-3 md:mt-4 lg:mt-4 sm:mt-0">
+        <div className="w-full sm:w-auto">
           <Link
             href="/dashboard/categories/new"
-            className="inline-flex items-center px-2.5 xs:px-3 md:px-4 lg:px-4 py-1.5 xs:py-2 md:py-2 lg:py-2 border border-transparent rounded-md shadow-sm text-[10px] xs:text-xs md:text-sm lg:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="flex w-full sm:w-auto justify-center items-center px-4 py-2.5 sm:px-6 sm:py-3 border border-transparent rounded-lg shadow-sm text-sm sm:text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
           >
-            <PlusIcon className="h-3.5 w-3.5 xs:h-4 xs:w-4 md:h-4 md:w-4 lg:h-4 lg:w-4 mr-1 xs:mr-1.5 md:mr-2 lg:mr-2" />
+            <PlusIcon className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
             New Category
           </Link>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 gap-3 xs:gap-4 md:gap-5 lg:gap-6 sm:grid-cols-3">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-3 xs:p-4 md:p-5 lg:p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <TagIcon className="h-4 w-4 xs:h-5 xs:w-5 md:h-6 md:w-6 text-gray-400" />
-              </div>
-              <div className="ml-3 xs:ml-4 md:ml-5 lg:ml-6 w-0 flex-1">
-                <dl>
-                  <dt className="text-xs xs:text-sm md:text-sm lg:text-base font-medium text-gray-500 truncate">
-                    Total Categories
-                  </dt>
-                  <dd className="text-sm xs:text-base md:text-lg lg:text-xl font-medium text-gray-900">
-                    {categories.length}
-                  </dd>
-                </dl>
+      {/* Stats Cards - Different layouts for mobile vs tablet/desktop */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Mobile: Single card, Tablet/Desktop: Three cards */}
+        <Card>
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className="h-10 w-10 sm:h-12 sm:w-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <TagIcon className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-3 xs:px-4 md:px-5 lg:px-6 py-3 xs:py-4 md:py-5 lg:py-6">
-          <div className="max-w-lg">
-            <label htmlFor="search" className="sr-only">
-              Search categories
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-2.5 xs:pl-3 md:pl-3 lg:pl-4 flex items-center pointer-events-none">
-                <TagIcon className="h-4 w-4 xs:h-4.5 xs:w-4.5 md:h-5 md:w-5 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                id="search"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-9 xs:pl-10 md:pl-10 lg:pl-12 pr-2.5 xs:pr-3 md:pr-3 lg:pr-4 py-1.5 xs:py-2 md:py-2 lg:py-2.5 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs xs:text-sm md:text-sm lg:text-base"
-                placeholder="Search categories..."
-              />
+            <div className="ml-3 flex-1">
+              <p className="text-sm font-medium text-gray-500 sm:text-base">Total Categories</p>
+              <p className="text-2xl font-bold text-gray-900 sm:text-3xl">{categories.length}</p>
             </div>
           </div>
-        </div>
+        </Card>
+
+        {/* Tablet/Desktop only stats */}
+        <Card className="hidden sm:block">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
+                <TagIcon className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+            <div className="ml-4 flex-1">
+              <p className="text-base font-medium text-gray-500">Active Categories</p>
+              <p className="text-3xl font-bold text-gray-900">{categories.filter(cat => (cat._count?.products || 0) > 0).length}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="hidden sm:block">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center">
+                <TagIcon className="h-6 w-6 text-purple-600" />
+              </div>
+            </div>
+            <div className="ml-4 flex-1">
+              <p className="text-base font-medium text-gray-500">Total Products</p>
+              <p className="text-3xl font-bold text-gray-900">{categories.reduce((sum, cat) => sum + (cat._count?.products || 0), 0)}</p>
+            </div>
+          </div>
+        </Card>
       </div>
 
-      {/* Category Import Section */}
-      <div className="mb-6">
-        <CategoryImport />
+      {/* Search and Import - Different layouts for mobile vs tablet/desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Search - Full width on mobile/tablet, half width on desktop */}
+        <Card>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <TagIcon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="block w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-4 border border-gray-300 rounded-lg text-sm sm:text-base placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Search categories..."
+            />
+          </div>
+        </Card>
+
+        {/* Category Import - Full width on mobile/tablet, half width on desktop */}
+        <Card>
+          <CategoryImport />
+        </Card>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-3 xs:p-4 md:p-4 lg:p-5">
+        <Card className="bg-red-50 border-red-200">
           <div className="flex">
-            <div className="ml-2 xs:ml-3 md:ml-3 lg:ml-4">
-              <h3 className="text-xs xs:text-sm md:text-sm lg:text-base font-medium text-red-800">Error</h3>
-              <div className="mt-1 xs:mt-1.5 md:mt-2 lg:mt-2.5 text-xs xs:text-sm md:text-sm lg:text-base text-red-700">{error}</div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800 sm:text-base">Error</h3>
+              <div className="mt-2 text-sm text-red-700 sm:text-base">{error}</div>
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
-      {/* Categories List */}
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
-        <ul className="divide-y divide-gray-200">
-          {filteredCategories.length === 0 ? (
-            <li className="px-4 xs:px-5 md:px-6 lg:px-6 py-8 xs:py-10 md:py-12 lg:py-12 text-center">
-              <TagIcon className="mx-auto h-8 w-8 xs:h-10 xs:w-10 md:h-12 md:w-12 text-gray-400" />
-              <h3 className="mt-1.5 xs:mt-2 md:mt-2 lg:mt-3 text-xs xs:text-sm md:text-sm lg:text-base font-medium text-gray-900">
-                {searchTerm ? 'No categories found' : 'No categories yet'}
-              </h3>
-              <p className="mt-1 xs:mt-1.5 md:mt-1.5 lg:mt-2 text-xs xs:text-sm md:text-sm lg:text-base text-gray-500">
-                {searchTerm 
-                  ? 'Try adjusting your search terms.'
-                  : 'Get started by creating your first category.'
-                }
-              </p>
-              {!searchTerm && (
-                <div className="mt-4 xs:mt-5 md:mt-6 lg:mt-6">
-                  <Link
-                    href="/dashboard/categories/new"
-                    className="inline-flex items-center px-2.5 xs:px-3 md:px-4 lg:px-6 py-1.5 xs:py-2 md:py-2 lg:py-2.5 border border-transparent shadow-sm text-xs xs:text-sm md:text-sm lg:text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    <PlusIcon className="h-3.5 w-3.5 xs:h-4 xs:w-4 md:h-4 md:w-4 lg:h-5 lg:w-5 mr-1 xs:mr-1.5 md:mr-2 lg:mr-3" />
-                    New Category
-                  </Link>
-                </div>
-              )}
-            </li>
-          ) : (
-            filteredCategories.map((category) => (
-              <li key={category.id}>
-                <div className="px-3 xs:px-4 md:px-5 lg:px-6 py-3 xs:py-4 md:py-4 lg:py-5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="h-6 w-6 xs:h-7 xs:w-7 md:h-8 md:w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                          <TagIcon className="h-3 w-3 xs:h-3.5 xs:w-3.5 md:h-4 md:w-4 text-blue-600" />
-                        </div>
-                      </div>
-                      <div className="ml-3 xs:ml-4 md:ml-4 lg:ml-5">
-                        <div className="text-xs xs:text-sm md:text-sm lg:text-base font-medium text-gray-900">
-                          {category.name}
-                        </div>
-                        <div className="text-xs xs:text-sm md:text-sm lg:text-base text-gray-500">
-                          {category._count?.products || 0} products
-                        </div>
+      {/* Categories List - Different layouts for mobile vs tablet/desktop */}
+      <Card className="overflow-hidden">
+        {filteredCategories.length === 0 ? (
+          <div className="px-4 py-12 sm:px-8 sm:py-16 text-center">
+            <TagIcon className="mx-auto h-12 w-12 sm:h-16 sm:w-16 text-gray-400" />
+            <h3 className="mt-3 text-lg font-medium text-gray-900 sm:text-xl">
+              {searchTerm ? 'No categories found' : 'No categories yet'}
+            </h3>
+            <p className="mt-2 text-sm text-gray-500 sm:text-base">
+              {searchTerm 
+                ? 'Try adjusting your search terms.'
+                : 'Get started by creating your first category.'
+              }
+            </p>
+            {!searchTerm && (
+              <div className="mt-6">
+                <Link
+                  href="/dashboard/categories/new"
+                  className="inline-flex items-center px-4 py-2.5 sm:px-6 sm:py-3 border border-transparent shadow-sm text-sm sm:text-base font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                >
+                  <PlusIcon className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                  New Category
+                </Link>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {filteredCategories.map((category) => (
+              <div key={category.id} className="p-4 sm:p-6 hover:bg-gray-50 transition-colors">
+                {/* Mobile Layout: Stacked (Category name first, then buttons in two columns) */}
+                <div className="block sm:hidden space-y-3">
+                  {/* Category Name Section - Full Width */}
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                        <TagIcon className="h-4 w-4 text-blue-600" />
                       </div>
                     </div>
-                    <div className="flex items-center space-x-1.5 xs:space-x-2 md:space-x-2 lg:space-x-3">
-                      <Link
-                        href={`/dashboard/categories/${category.id}/edit`}
-                        className="inline-flex items-center px-2 xs:px-2.5 md:px-3 lg:px-4 py-1 xs:py-1.5 md:py-1 lg:py-1.5 border border-gray-300 rounded-md text-xs xs:text-sm md:text-sm lg:text-base font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      >
-                        <PencilIcon className="h-3 w-3 xs:h-3.5 xs:w-3.5 md:h-4 md:w-4 mr-0.5 xs:mr-1 md:mr-1 lg:mr-1.5" />
-                        Edit
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(category.id, category.name)}
-                        disabled={deleteLoading === category.id}
-                        className="inline-flex items-center px-2 xs:px-2.5 md:px-3 lg:px-4 py-1 xs:py-1.5 md:py-1 lg:py-1.5 border border-red-300 rounded-md text-xs xs:text-sm md:text-sm lg:text-base font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
-                      >
-                        <TrashIcon className="h-3 w-3 xs:h-3.5 xs:w-3.5 md:h-4 md:w-4 mr-0.5 xs:mr-1 md:mr-1 lg:mr-1.5" />
-                        {deleteLoading === category.id ? 'Deleting...' : 'Delete'}
-                      </button>
+                    <div className="ml-3 flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-gray-900 truncate">
+                        {category.name}
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                        {category._count?.products || 0} products
+                      </p>
                     </div>
                   </div>
+                  
+                  {/* Action Buttons - Two Columns in One Row */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Link
+                      href={`/dashboard/categories/${category.id}/edit`}
+                      className="inline-flex items-center justify-center px-3 py-2.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                    >
+                      <PencilIcon className="h-3.5 w-3.5 mr-1.5" />
+                      Edit
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(category.id, category.name)}
+                      disabled={deleteLoading === category.id}
+                      className="inline-flex items-center justify-center px-3 py-2.5 border border-red-300 rounded-lg text-xs font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition-colors"
+                    >
+                      <TrashIcon className="h-3.5 w-3.5 mr-1.5" />
+                      {deleteLoading === category.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
                 </div>
-              </li>
-            ))
-          )}
-        </ul>
-      </div>
+
+                {/* Tablet/Desktop Layout: Horizontal (Category name and buttons in one row) */}
+                <div className="hidden sm:flex items-center justify-between">
+                  <div className="flex items-center flex-1 min-w-0">
+                    <div className="flex-shrink-0">
+                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <TagIcon className="h-5 w-5 text-blue-600" />
+                      </div>
+                    </div>
+                    <div className="ml-4 flex-1 min-w-0">
+                      <h4 className="text-base font-medium text-gray-900 truncate">
+                        {category.name}
+                      </h4>
+                      <p className="text-sm text-gray-500">
+                        {category._count?.products || 0} products
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Action Buttons - Horizontal layout */}
+                  <div className="flex items-center space-x-3 ml-6">
+                    <Link
+                      href={`/dashboard/categories/${category.id}/edit`}
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                    >
+                      <PencilIcon className="h-4 w-4 mr-2" />
+                      Edit
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(category.id, category.name)}
+                      disabled={deleteLoading === category.id}
+                      className="inline-flex items-center px-4 py-2 border border-red-300 rounded-lg text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition-colors"
+                    >
+                      <TrashIcon className="h-4 w-4 mr-2" />
+                      {deleteLoading === category.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   )
 }
