@@ -7,3 +7,6 @@ export { default as useSearch } from './useSearch'
 // Named exports for utility functions
 export { clearAllCaches, getCacheStats } from './useSmartDataFetching'
 export { getCurrentAuthState, clearAuthState } from './useSmartAuth'
+
+// Mobile layout hooks
+export { default as useMobileLayout, useMobileLayoutUtils } from './useMobileLayout'

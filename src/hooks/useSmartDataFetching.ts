@@ -63,16 +63,20 @@ function useSmartDataFetching<T = unknown>({
     
     const cached = globalCache.get(cacheKey)
     if (cached && isCacheValid(cached)) {
+      // Apply transform to cached data as well to ensure consistency
+      if (transform) {
+        return transform(cached.data) as T
+      }
       return cached.data as T
     }
     return null
-  }, [cacheKey, skipCache, isCacheValid])
+  }, [cacheKey, skipCache, isCacheValid, transform])
 
   // Set cached data
-  const setCachedData = useCallback((newData: T) => {
+  const setCachedData = useCallback((newData: unknown) => {
     if (skipCache) return
     
-    const entry: CacheEntry<T> = {
+    const entry: CacheEntry<unknown> = {
       data: newData,
       timestamp: Date.now(),
       expiresAt: Date.now() + cacheDuration
@@ -123,7 +127,8 @@ function useSmartDataFetching<T = unknown>({
       const processedData = transform ? transform(rawData) : rawData
 
       setData(processedData)
-      setCachedData(processedData)
+      // Store raw data in cache so transform can be applied consistently
+      setCachedData(rawData)
       setLastFetched(Date.now())
       setError(null)
 

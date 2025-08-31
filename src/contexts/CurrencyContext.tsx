@@ -109,8 +109,6 @@ export function useCurrency() {
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [currentCurrency, setCurrentCurrency] = useState<Currency>(SUPPORTED_CURRENCIES.find(c => c.code === 'MMK')!) // MMK default
 
-  console.log('🌍 CurrencyProvider: Initializing with default currency:', SUPPORTED_CURRENCIES.find(c => c.code === 'MMK')?.code)
-
   // Load saved currency preference from localStorage
   useEffect(() => {
     const savedCurrency = localStorage.getItem('preferred-currency')
@@ -140,8 +138,6 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [])
-
-  console.log('🌍 CurrencyProvider: Current currency state:', currentCurrency.code)
 
   // Save currency preference to localStorage
   const handleSetCurrentCurrency = (currency: Currency) => {

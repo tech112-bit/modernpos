@@ -48,17 +48,23 @@ export default function ProductsPage() {
     data: productsData, 
     loading, 
     error, 
-    refetch: fetchProducts 
+    refetch: fetchProducts
   } = useSmartDataFetching<Product[]>({
     endpoint: '/api/products',
     autoFetch: !!user,
     cacheDuration: 300000, // Cache for 5 minutes
     debounceDelay: 500, // Debounce API calls
-    transform: (data: unknown) => (data as ProductsApiResponse).products || []
+    transform: (data: unknown) => {
+      const response = data as ProductsApiResponse
+      return response?.products || []
+    }
   })
 
-  const products = productsData || []
 
+  
+  // Extract products array from the response
+  const products = Array.isArray(productsData) ? productsData : []
+  
   // Use the new search hook
   const { 
     searchTerm, 
@@ -114,11 +120,13 @@ export default function ProductsPage() {
   }
 
   // Apply category filter on top of search filter
-  const filteredProducts = searchFilteredProducts.filter(product => {
-    return selectedCategory === 'all' || product.categories.name === selectedCategory
-  })
-
-  const categories = ['all', ...Array.from(new Set(products.map(p => p.categories.name)))]
+  const filteredProducts = Array.isArray(searchFilteredProducts) 
+    ? searchFilteredProducts.filter(product => {
+        return selectedCategory === 'all' || product.categories?.name === selectedCategory
+      })
+    : []
+  
+  const categories = ['all', ...Array.from(new Set(products.map(p => p.categories?.name || 'Uncategorized')))]
 
   if (loading) {
     return <LoadingSpinner />

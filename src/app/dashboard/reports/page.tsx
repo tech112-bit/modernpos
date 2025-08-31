@@ -39,7 +39,7 @@ interface ReportData {
   }
 }
 
-interface ReportsApiResponse extends ReportData {}
+type ReportsApiResponse = ReportData
 
 export default function ReportsPage() {
   const { addNotification } = useNotifications()
