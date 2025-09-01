@@ -112,15 +112,12 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   // Load saved currency preference from localStorage
   useEffect(() => {
     const savedCurrency = localStorage.getItem('preferred-currency')
-    console.log('🔍 Loading saved currency from localStorage:', savedCurrency)
     
     if (savedCurrency) {
       const currency = SUPPORTED_CURRENCIES.find(c => c.code === savedCurrency)
       if (currency) {
-        console.log('✅ Found saved currency:', currency.code)
         setCurrentCurrency(currency)
       } else {
-        console.log('❌ Invalid saved currency code:', savedCurrency)
         // Fallback to MMK
         const mmkCurrency = SUPPORTED_CURRENCIES.find(c => c.code === 'MMK')
         if (mmkCurrency) {
@@ -129,7 +126,6 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
         }
       }
     } else {
-      console.log('📝 No saved currency found, defaulting to MMK')
       // Default to MMK if no preference is saved
       const mmkCurrency = SUPPORTED_CURRENCIES.find(c => c.code === 'MMK')
       if (mmkCurrency) {
@@ -141,10 +137,8 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
 
   // Save currency preference to localStorage
   const handleSetCurrentCurrency = (currency: Currency) => {
-    console.log('💱 Setting currency to:', currency.code)
     setCurrentCurrency(currency)
     localStorage.setItem('preferred-currency', currency.code)
-    console.log('💾 Saved currency preference to localStorage:', currency.code)
   }
 
   // Format currency amount

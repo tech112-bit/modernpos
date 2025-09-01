@@ -13,7 +13,8 @@ import {
   ResponsiveContainer,
   ResponsiveGrid 
 } from '@/components/ui'
-import { useSmartDataFetching, useDeleteConfirmation, useSearch, useMobileLayoutUtils } from '@/hooks'
+import { useSmartDataFetching, useDeleteConfirmation, useSearch } from '@/hooks'
+import { useMobileLayout } from '@/hooks/useMobileLayout'
 import {
   PlusIcon,
   PencilIcon,
@@ -36,7 +37,7 @@ export default function CategoriesPage() {
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null)
   
   // Mobile layout utilities
-  const { isMobileS, isMobileM, getTextSize, getTouchTargetSize } = useMobileLayoutUtils()
+  const { isMobile, getResponsiveValue } = useMobileLayout()
 
   // Use smart data fetching with caching
   const { 
@@ -119,19 +120,19 @@ export default function CategoriesPage() {
         {/* Header - Mobile-optimized */}
         <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
           <div>
-            <h1 className={getTextSize('text-lg', 'text-xl', 'text-2xl') + ' font-bold text-gray-900'}>
+            <h1 className={`${getResponsiveValue('text-lg', 'text-xl', 'text-2xl')} font-bold text-gray-900`}>
               Categories
             </h1>
-            <p className={`mt-1 ${getTextSize('text-sm', 'text-base', 'text-lg')} text-gray-600`}>
+            <p className={`mt-1 ${getResponsiveValue('text-sm', 'text-base', 'text-lg')} text-gray-600`}>
               Manage product categories
             </p>
           </div>
           <div className="w-full sm:w-auto">
             <ResponsiveLinkButton
               variant="primary"
-              size={isMobileS ? 'sm' : 'md'}
+              size={isMobile ? 'sm' : 'md'}
               icon={PlusIcon}
-              fullWidth={isMobileS || isMobileM}
+              fullWidth={isMobile}
               href="/dashboard/categories/new"
             >
               New Category
@@ -148,15 +149,15 @@ export default function CategoriesPage() {
           <MobileOptimizedCard variant="default" padding="sm">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className={`${getTouchTargetSize()} bg-blue-100 rounded-full flex items-center justify-center`}>
-                  <TagIcon className={`${getTextSize('h-5 w-5', 'h-6 w-6', 'h-6 w-6')} text-blue-600`} />
+                <div className={`${isMobile ? 'min-h-[44px] min-w-[44px]' : 'h-12 w-12'} bg-blue-100 rounded-full flex items-center justify-center`}>
+                  <TagIcon className={`${getResponsiveValue('h-5 w-5', 'h-6 w-6', 'h-6 w-6')} text-blue-600`} />
                 </div>
               </div>
               <div className="ml-3 flex-1">
-                <p className={`${getTextSize('text-sm', 'text-base', 'text-base')} font-medium text-gray-500`}>
+                <p className={`${getResponsiveValue('text-sm', 'text-base', 'text-base')} font-medium text-gray-500`}>
                   Total Categories
                 </p>
-                <p className={`${getTextSize('text-2xl', 'text-3xl', 'text-3xl')} font-bold text-gray-900`}>
+                <p className={`${getResponsiveValue('text-2xl', 'text-3xl', 'text-3xl')} font-bold text-gray-900`}>
                   {categories.length}
                 </p>
               </div>
@@ -218,8 +219,8 @@ export default function CategoriesPage() {
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Search categories..."
               icon={TagIcon}
-              size={isMobileS ? 'sm' : 'md'}
-              mobileSize={isMobileS ? 'compact' : 'standard'}
+              size={isMobile ? 'sm' : 'md'}
+              mobileSize={isMobile ? 'compact' : 'standard'}
             />
           </MobileOptimizedCard>
 
@@ -234,10 +235,10 @@ export default function CategoriesPage() {
           <MobileOptimizedCard variant="outlined" className="bg-red-50 border-red-200">
             <div className="flex">
               <div className="ml-3">
-                <h3 className={`${getTextSize('text-sm', 'text-base', 'text-base')} font-medium text-red-800`}>
+                <h3 className={`${getResponsiveValue('text-sm', 'text-base', 'text-base')} font-medium text-red-800`}>
                   Error
                 </h3>
-                <div className={`mt-2 ${getTextSize('text-sm', 'text-base', 'text-base')} text-red-700`}>
+                <div className={`mt-2 ${getResponsiveValue('text-sm', 'text-base', 'text-base')} text-red-700`}>
                   {error}
                 </div>
               </div>
@@ -249,11 +250,11 @@ export default function CategoriesPage() {
         <MobileOptimizedCard variant="default" className="overflow-hidden">
           {filteredCategories.length === 0 ? (
             <div className={`px-4 py-12 sm:px-8 sm:py-16 text-center`}>
-              <TagIcon className={`mx-auto ${getTextSize('h-12 w-12', 'h-16 w-16', 'h-16 w-16')} text-gray-400`} />
-              <h3 className={`mt-3 ${getTextSize('text-lg', 'text-xl', 'text-xl')} font-medium text-gray-900`}>
+              <TagIcon className={`mx-auto ${getResponsiveValue('h-12 w-12', 'h-16 w-16', 'h-16 w-16')} text-gray-400`} />
+              <h3 className={`mt-3 ${getResponsiveValue('text-lg', 'text-xl', 'text-xl')} font-medium text-gray-900`}>
                 {searchTerm ? 'No categories found' : 'No categories yet'}
               </h3>
-              <p className={`mt-2 ${getTextSize('text-sm', 'text-base', 'text-base')} text-gray-500`}>
+              <p className={`mt-2 ${getResponsiveValue('text-sm', 'text-base', 'text-base')} text-gray-500`}>
                 {searchTerm 
                   ? 'Try adjusting your search terms.'
                   : 'Get started by creating your first category.'
@@ -263,7 +264,7 @@ export default function CategoriesPage() {
                 <div className="mt-6">
                   <ResponsiveLinkButton
                     variant="primary"
-                    size={isMobileS ? 'sm' : 'md'}
+                    size={isMobile ? 'sm' : 'md'}
                     icon={PlusIcon}
                     href="/dashboard/categories/new"
                   >
@@ -281,15 +282,15 @@ export default function CategoriesPage() {
                     {/* Category Name Section - Full Width */}
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
-                        <div className={`${getTouchTargetSize()} bg-blue-100 rounded-full flex items-center justify-center`}>
-                          <TagIcon className={`${getTextSize('h-4 w-4', 'h-5 w-5', 'h-5 w-5')} text-blue-600`} />
+                        <div className={`${isMobile ? 'min-h-[44px] min-w-[44px]' : 'h-10 w-10'} bg-blue-100 rounded-full flex items-center justify-center`}>
+                          <TagIcon className={`${getResponsiveValue('h-4 w-4', 'h-5 w-5', 'h-5 w-5')} text-blue-600`} />
                         </div>
                       </div>
                       <div className="ml-3 flex-1 min-w-0">
-                        <h4 className={`${getTextSize('text-sm', 'text-base', 'text-base')} font-medium text-gray-900 truncate`}>
+                        <h4 className={`${getResponsiveValue('text-sm', 'text-base', 'text-base')} font-medium text-gray-900 truncate`}>
                           {category.name}
                         </h4>
-                        <p className={`${getTextSize('text-xs', 'text-sm', 'text-sm')} text-gray-500`}>
+                        <p className={`${getResponsiveValue('text-xs', 'text-sm', 'text-sm')} text-gray-500`}>
                           {category._count?.products || 0} products
                         </p>
                       </div>

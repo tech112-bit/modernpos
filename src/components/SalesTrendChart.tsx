@@ -15,6 +15,7 @@ import {
 } from 'chart.js'
 import { Line, Bar } from 'react-chartjs-2'
 import { useCurrency } from '@/contexts/CurrencyContext'
+import { useMobileLayout } from '@/hooks/useMobileLayout'
 
 // Register Chart.js components
 ChartJS.register(
@@ -41,8 +42,269 @@ interface SalesTrendChartProps {
   chartType?: 'line' | 'bar'
 }
 
+// DRY: Reusable responsive chart configurations
+const createResponsiveConfig = (isMobile: boolean) => ({
+  // Mobile-optimized dimensions
+  height: isMobile ? 300 : 320,
+  padding: isMobile ? 10 : 20,
+  
+  // Font sizes based on screen size
+  fontSizes: {
+    legend: isMobile ? 10 : 12,
+    axis: isMobile ? 9 : 11,
+    axisTitle: isMobile ? 10 : 12,
+    tooltip: isMobile ? 10 : 12
+  },
+  
+  // Spacing and layout
+  spacing: {
+    legendPadding: isMobile ? 15 : 20,
+    axisPadding: isMobile ? 8 : 12,
+    gridSpacing: isMobile ? 0.05 : 0.1
+  }
+})
+
+// DRY: Reusable chart options generator
+const createChartOptions = (formatCurrency: (amount: number) => string, isMobile: boolean) => {
+  const config = createResponsiveConfig(isMobile)
+  
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index' as const,
+      intersect: false,
+    },
+    plugins: {
+      legend: {
+        position: 'top' as const,
+        labels: {
+          usePointStyle: true,
+          padding: config.spacing.legendPadding,
+          font: {
+            size: config.fontSizes.legend,
+            weight: 'bold' as const
+          },
+          // Mobile: Stack legend items vertically to save horizontal space
+          ...(isMobile && {
+            boxWidth: 8,
+            boxHeight: 8,
+            generateLabels: (chart: any) => {
+              const datasets = chart.data.datasets
+              return datasets.map((dataset: any, i: number) => ({
+                text: dataset.label,
+                fillStyle: dataset.backgroundColor || dataset.borderColor,
+                strokeStyle: dataset.borderColor,
+                lineWidth: 2,
+                pointStyle: 'circle',
+                hidden: !chart.isDatasetVisible(i),
+                index: i
+              }))
+            }
+          })
+        }
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+        titleColor: '#ffffff',
+        bodyColor: '#ffffff',
+        borderColor: 'rgba(59, 130, 246, 0.5)',
+        borderWidth: 1,
+        cornerRadius: 8,
+        displayColors: true,
+        titleFont: {
+          size: config.fontSizes.tooltip
+        },
+        bodyFont: {
+          size: config.fontSizes.tooltip
+        },
+        callbacks: {
+          title: (tooltipItems: { label: string }[]) => {
+            return tooltipItems[0]?.label || ''
+          },
+          label: (context: { datasetIndex: number; parsed: { y: number } }) => {
+            if (context.datasetIndex === 0) {
+              return `Revenue: ${formatCurrency(context.parsed.y)}`
+            } else {
+              return `Sales: ${context.parsed.y} transactions`
+            }
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: {
+          display: true,
+          color: 'rgba(0, 0, 0, 0.1)',
+          drawBorder: false,
+        },
+        ticks: {
+          color: '#6b7280',
+          font: {
+            size: config.fontSizes.axis,
+            weight: 'normal' as const
+          },
+          // Mobile: Optimize label rotation and spacing
+          maxRotation: isMobile ? 0 : 45,
+          minRotation: 0,
+          padding: config.spacing.axisPadding,
+          // Mobile: Reduce number of ticks to prevent overlap
+          maxTicksLimit: isMobile ? 4 : 8,
+          callback: function(value: any, index: number, values: any[]) {
+            // Mobile: Show only every other label to prevent overlap
+            if (isMobile && index % 2 === 1) return ''
+            return value
+          }
+        }
+      },
+      y: {
+        type: 'linear' as const,
+        display: true,
+        position: 'left' as const,
+        grid: {
+          display: true,
+          color: 'rgba(0, 0, 0, 0.1)',
+          drawBorder: false,
+        },
+        ticks: {
+          color: '#6b7280',
+          font: {
+            size: config.fontSizes.axis,
+            weight: 'normal' as const
+          },
+          padding: config.spacing.axisPadding,
+          // Mobile: Reduce number of ticks and format for better readability
+          maxTicksLimit: isMobile ? 4 : 6,
+          callback: function(tickValue: string | number) {
+            if (typeof tickValue === 'number') {
+              // Mobile: Use abbreviated format for better fit
+              if (isMobile && tickValue >= 1000) {
+                return `${(tickValue / 1000).toFixed(1)}K`
+              }
+              return formatCurrency(tickValue)
+            }
+            return tickValue
+          }
+        },
+        title: {
+          display: true,
+          text: 'Revenue',
+          color: '#6b7280',
+          font: {
+            size: config.fontSizes.axisTitle,
+            weight: 'bold' as const
+          },
+          // Mobile: Position title to avoid overlap
+          padding: {
+            top: isMobile ? 5 : 10,
+            bottom: isMobile ? 5 : 10
+          }
+        }
+      },
+      y1: {
+        type: 'linear' as const,
+        display: true,
+        position: 'right' as const,
+        grid: {
+          drawOnChartArea: false,
+        },
+        ticks: {
+          color: '#6b7280',
+          font: {
+            size: config.fontSizes.axis,
+            weight: 'normal' as const
+          },
+          padding: config.spacing.axisPadding,
+          // Mobile: Reduce number of ticks
+          maxTicksLimit: isMobile ? 4 : 6,
+          callback: function(tickValue: string | number) {
+            if (typeof tickValue === 'number') {
+              // Mobile: Use abbreviated format
+              if (isMobile && tickValue >= 10) {
+                return Math.round(tickValue).toString()
+              }
+              return tickValue.toString()
+            }
+            return tickValue
+          }
+        },
+        title: {
+          display: true,
+          text: 'Sales Count',
+          color: '#6b7280',
+          font: {
+            size: config.fontSizes.axisTitle,
+            weight: 'bold' as const
+          },
+          // Mobile: Position title to avoid overlap
+          padding: {
+            top: isMobile ? 5 : 10,
+            bottom: isMobile ? 5 : 10
+          }
+        }
+      }
+    }
+  }
+}
+
+// DRY: Reusable dataset configurations
+const createDatasetConfig = (chartType: 'line' | 'bar', isMobile: boolean) => {
+  const baseRevenueConfig = {
+    label: 'Revenue',
+    borderColor: 'rgb(59, 130, 246)',
+    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+    borderWidth: isMobile ? 2 : 3,
+    pointBackgroundColor: 'rgb(59, 130, 246)',
+    pointBorderColor: '#ffffff',
+    pointBorderWidth: isMobile ? 1 : 2,
+    pointRadius: isMobile ? 3 : 6,
+    pointHoverRadius: isMobile ? 5 : 8,
+    tension: 0.4,
+    fill: true,
+  }
+
+  const baseSalesConfig = {
+    label: 'Sales Count',
+    borderColor: 'rgb(16, 185, 129)',
+    backgroundColor: 'rgba(16, 185, 129, 0.8)',
+    borderWidth: isMobile ? 1 : 2,
+    pointBackgroundColor: 'rgb(16, 185, 129)',
+    pointBorderColor: '#ffffff',
+    pointBorderWidth: isMobile ? 1 : 2,
+    pointRadius: isMobile ? 2 : 4,
+    pointHoverRadius: isMobile ? 4 : 6,
+    tension: 0.4,
+    fill: false,
+    yAxisID: 'y1',
+  }
+
+  if (chartType === 'bar') {
+    return {
+      revenue: {
+        ...baseRevenueConfig,
+        backgroundColor: 'rgba(59, 130, 246, 0.8)',
+        borderRadius: isMobile ? 2 : 4,
+        borderSkipped: false,
+      },
+      sales: {
+        ...baseSalesConfig,
+        backgroundColor: 'rgba(16, 185, 129, 0.8)',
+        borderRadius: isMobile ? 2 : 4,
+        borderSkipped: false,
+      }
+    }
+  }
+
+  return {
+    revenue: baseRevenueConfig,
+    sales: baseSalesConfig
+  }
+}
+
 export default function SalesTrendChart({ data, period, chartType = 'line' }: SalesTrendChartProps) {
   const { formatCurrency } = useCurrency()
+  const { isMobile, getChartDimensions } = useMobileLayout()
 
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return null
@@ -57,7 +319,7 @@ export default function SalesTrendChart({ data, period, chartType = 'line' }: Sa
     // Debug: Log sorted data
     console.log('SalesTrendChart - Sorted data:', sortedData)
     
-    // Format labels based on period
+    // DRY: Reusable date formatting function
     const formatLabel = (dateString: string) => {
       try {
         console.log('Formatting date string:', dateString)
@@ -117,193 +379,35 @@ export default function SalesTrendChart({ data, period, chartType = 'line' }: Sa
       }
     }
 
-
+    // DRY: Get dataset configuration
+    const datasetConfig = createDatasetConfig(chartType, isMobile)
 
     const baseConfig = {
       labels: sortedData.map(item => formatLabel(item.date)),
       datasets: [
         {
-          label: 'Revenue',
+          ...datasetConfig.revenue,
           data: sortedData.map(item => item.total),
-          borderColor: 'rgb(59, 130, 246)',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          borderWidth: 3,
-          pointBackgroundColor: 'rgb(59, 130, 246)',
-          pointBorderColor: '#ffffff',
-          pointBorderWidth: 2,
-          pointRadius: 6,
-          pointHoverRadius: 8,
-          tension: 0.4,
-          fill: true,
         },
         {
-          label: 'Sales Count',
+          ...datasetConfig.sales,
           data: sortedData.map(item => item.count),
-          borderColor: 'rgb(16, 185, 129)',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          borderWidth: 2,
-          pointBackgroundColor: 'rgb(16, 185, 129)',
-          pointBorderColor: '#ffffff',
-          pointBorderWidth: 2,
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          tension: 0.4,
-          fill: false,
-          yAxisID: 'y1',
         }
       ]
     }
 
-    if (chartType === 'bar') {
-      return {
-        ...baseConfig,
-        datasets: [
-          {
-            label: 'Revenue',
-            data: sortedData.map(item => item.total),
-            backgroundColor: 'rgba(59, 130, 246, 0.8)',
-            borderColor: 'rgb(59, 130, 246)',
-            borderWidth: 1,
-            borderRadius: 4,
-            borderSkipped: false,
-          },
-          {
-            label: 'Sales Count',
-            data: sortedData.map(item => item.count),
-            backgroundColor: 'rgba(16, 185, 129, 0.8)',
-            borderColor: 'rgb(16, 185, 129)',
-            borderWidth: 1,
-            borderRadius: 4,
-            borderSkipped: false,
-            yAxisID: 'y1',
-          }
-        ]
-      }
-    }
-
     return baseConfig
-  }, [data, period, chartType])
+  }, [data, period, chartType, isMobile])
 
-  const options = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: {
-      mode: 'index' as const,
-      intersect: false,
-    },
-    plugins: {
-      legend: {
-        position: 'top' as const,
-        labels: {
-          usePointStyle: true,
-          padding: 20,
-          font: {
-            size: 12,
-            weight: 'bold' as const
-          }
-        }
-      },
-      tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        titleColor: '#ffffff',
-        bodyColor: '#ffffff',
-        borderColor: 'rgba(59, 130, 246, 0.5)',
-        borderWidth: 1,
-        cornerRadius: 8,
-        displayColors: true,
-        callbacks: {
-          title: (tooltipItems: { label: string }[]) => {
-            return tooltipItems[0]?.label || ''
-          },
-          label: (context: { datasetIndex: number; parsed: { y: number } }) => {
-            if (context.datasetIndex === 0) {
-              return `Revenue: ${formatCurrency(context.parsed.y)}`
-            } else {
-              return `Sales: ${context.parsed.y} transactions`
-            }
-          }
-        }
-      }
-    },
-    scales: {
-      x: {
-        grid: {
-          display: true,
-          color: 'rgba(0, 0, 0, 0.1)',
-          drawBorder: false,
-        },
-        ticks: {
-          color: '#6b7280',
-          font: {
-            size: 11,
-            weight: 'normal' as const
-          },
-          maxRotation: 45,
-          minRotation: 0
-        }
-      },
-      y: {
-        type: 'linear' as const,
-        display: true,
-        position: 'left' as const,
-        grid: {
-          display: true,
-          color: 'rgba(0, 0, 0, 0.1)',
-          drawBorder: false,
-        },
-        ticks: {
-          color: '#6b7280',
-          font: {
-            size: 11,
-            weight: 'normal' as const
-          },
-          callback: function(tickValue: string | number) {
-            if (typeof tickValue === 'number') {
-              return formatCurrency(tickValue)
-            }
-            return tickValue
-          }
-        },
-        title: {
-          display: true,
-          text: 'Revenue',
-          color: '#6b7280',
-          font: {
-            size: 12,
-            weight: 'bold' as const
-          }
-        }
-      },
-      y1: {
-        type: 'linear' as const,
-        display: true,
-        position: 'right' as const,
-        grid: {
-          drawOnChartArea: false,
-        },
-        ticks: {
-          color: '#6b7280',
-          font: {
-            size: 11,
-            weight: 'normal' as const
-          }
-        },
-        title: {
-          display: true,
-          text: 'Sales Count',
-          color: '#6b7280',
-          font: {
-            size: 12,
-            weight: 'bold' as const
-          }
-        }
-      }
-    }
-  }), [formatCurrency])
+  // DRY: Create chart options using reusable function
+  const options = useMemo(() => 
+    createChartOptions(formatCurrency, isMobile), 
+    [formatCurrency, isMobile]
+  )
 
   if (!chartData) {
     return (
-      <div className="h-80 flex items-center justify-center">
+      <div className="flex items-center justify-center" style={{ height: `${getChartDimensions().height}px` }}>
         <div className="text-center">
           <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
             <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -317,8 +421,11 @@ export default function SalesTrendChart({ data, period, chartType = 'line' }: Sa
     )
   }
 
+  // DRY: Dynamic height based on mobile detection using hook
+  const chartHeight = getChartDimensions().height
+
   return (
-    <div className="h-80">
+    <div className="w-full" style={{ height: `${chartHeight}px` }}>
       {chartType === 'line' ? (
         <Line data={chartData} options={options} />
       ) : (

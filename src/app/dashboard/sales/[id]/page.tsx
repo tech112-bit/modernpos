@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useNotifications } from '@/contexts/NotificationContext'
+import { useCurrency } from '@/contexts/CurrencyContext'
 
 import { formatRelativeTime } from '@/lib/utils'
 import {
@@ -44,6 +45,7 @@ export default function SaleDetailPage() {
   const router = useRouter()
   const params = useParams()
   const { addNotification } = useNotifications()
+  const { formatCurrency } = useCurrency()
   const [sale, setSale] = useState<Sale | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
@@ -244,8 +246,8 @@ export default function SaleDetailPage() {
                     <p className="text-sm text-gray-500">SKU: {item.products.sku}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-gray-500">{item.quantity} × ${Number(item.price).toFixed(2)}</p>
-                    <p className="font-medium text-gray-900">${(item.quantity * Number(item.price)).toFixed(2)}</p>
+                    <p className="text-sm text-gray-500">{item.quantity} × {formatCurrency(Number(item.price))}</p>
+                    <p className="font-medium text-gray-900">{formatCurrency(Number(item.quantity * Number(item.price)))}</p>
                   </div>
                 </div>
               ))}
@@ -264,18 +266,18 @@ export default function SaleDetailPage() {
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Subtotal:</span>
-                <span className="text-gray-900">${(Number(sale.total) + Number(sale.discount)).toFixed(2)}</span>
+                <span className="text-gray-900">{formatCurrency(Number(sale.total) + Number(sale.discount))}</span>
               </div>
               {Number(sale.discount) > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Discount:</span>
-                  <span className="text-red-600">-${Number(sale.discount).toFixed(2)}</span>
+                  <span className="text-red-600">-{formatCurrency(Number(sale.discount))}</span>
                 </div>
               )}
               <div className="border-t border-gray-200 pt-3">
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total:</span>
-                  <span className="text-green-600">${Number(sale.total).toFixed(2)}</span>
+                  <span className="text-green-600">{formatCurrency(Number(sale.total))}</span>
                 </div>
               </div>
             </div>

@@ -3,20 +3,26 @@
 import { useCurrency } from '@/contexts/CurrencyContext'
 
 interface CurrencyDisplayProps {
-  amount: number
+  amount: number | string | null | undefined | { toString(): string }
   className?: string
 }
 
 export default function CurrencyDisplay({ amount, className = '' }: CurrencyDisplayProps) {
   const { currentCurrency, formatCurrency } = useCurrency()
   
-  console.log('💰 CurrencyDisplay: Current currency:', currentCurrency.code)
-  console.log('💰 CurrencyDisplay: Amount:', amount)
-  console.log('💰 CurrencyDisplay: Formatted result:', formatCurrency(amount))
+  if (amount === null || amount === undefined) {
+    return <span className={className}>-</span>
+  }
+  
+  const numericAmount = Number(amount)
+  
+  if (isNaN(numericAmount)) {
+    return <span className={className}>-</span>
+  }
   
   return (
     <span className={className}>
-      {formatCurrency(amount)}
+      {formatCurrency(numericAmount)}
     </span>
   )
 }

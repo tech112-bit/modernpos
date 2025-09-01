@@ -173,7 +173,7 @@ export default function SalesPage() {
 
       {/* Error Message */}
       {error && (
-        <Card className="bg-red-50 border-red-200">
+        <Card className="bg-red-50 border-transparent sm:border-red-200">
           <div className="flex">
             <div className="ml-3">
               <h3 className="text-sm font-medium text-red-800 sm:text-base">Error</h3>
@@ -209,7 +209,7 @@ export default function SalesPage() {
           ) : (
             <div className="space-y-3 xs:space-y-4 md:space-y-5 lg:space-y-6">
               {searchFilteredSales.map((sale) => (
-                <div key={sale.id} className="bg-white border border-gray-200 rounded-lg p-3 xs:p-4 md:p-5 lg:p-6 hover:shadow-md transition-shadow">
+                <div key={sale.id} className="bg-white border-transparent sm:border sm:border-gray-200 rounded-lg p-3 xs:p-4 md:p-5 lg:p-6 hover:shadow-md transition-shadow">
                   {/* Mobile Layout: Stacked */}
                   <div className="block sm:hidden space-y-3">
                     <div className="flex items-center justify-between">
@@ -257,7 +257,7 @@ export default function SalesPage() {
                       )}
                     </div>
                     
-                    <div className="pt-2 border-t border-gray-200">
+                    <div className="pt-2 border-t border-transparent sm:border-t sm:border-gray-200">
                       <Link
                         href={`/dashboard/sales/${sale.id}`}
                         className="w-full text-center bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"

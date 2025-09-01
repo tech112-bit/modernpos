@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { formatDistanceToNow } from 'date-fns'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -64,4 +65,102 @@ export function formatDateWithRelative(date: string | Date): string {
   } else {
     return relative
   }
+}
+
+// Product data transformation utilities
+export interface ApiProduct {
+  id: string
+  name: string
+  description?: string | null
+  price: number | string
+  cost: number | string
+  stock: number
+  sku: string
+  barcode?: string | null
+  categories?: {
+    id: string
+    name: string
+  } | null
+  created_at?: string | Date
+  updated_at?: string | Date
+}
+
+export interface TransformedProduct {
+  id: string
+  name: string
+  description: string
+  price: number | string
+  cost: number | string
+  stock: number
+  category: string
+  sku: string
+  barcode: string
+}
+
+/**
+ * Transform API product data to frontend format with null safety
+ * This ensures consistent data structure across the application
+ */
+export function transformProductData(apiProduct: ApiProduct): TransformedProduct {
+  return {
+    id: apiProduct.id,
+    name: apiProduct.name,
+    description: apiProduct.description || '',
+    price: apiProduct.price,
+    cost: apiProduct.cost,
+    stock: apiProduct.stock,
+    category: apiProduct.categories?.id || '', // Handle both categories (API) and category (frontend)
+    sku: apiProduct.sku,
+    barcode: apiProduct.barcode || ''
+  }
+}
+
+/**
+ * Transform frontend product data to API format
+ */
+export function transformToApiFormat(frontendProduct: TransformedProduct): {
+  name: string
+  description: string
+  sku: string
+  barcode: string
+  price: number
+  cost: number
+  stock: number
+  category_id: string
+} {
+  return {
+    name: frontendProduct.name,
+    description: frontendProduct.description,
+    sku: frontendProduct.sku,
+    barcode: frontendProduct.barcode,
+    price: Number(frontendProduct.price),
+    cost: Number(frontendProduct.cost),
+    stock: Number(frontendProduct.stock),
+    category_id: frontendProduct.category
+  }
+}
+
+/**
+ * Convert amount from current currency to MMK (base currency)
+ * This utility ensures consistent currency conversion across the application
+ */
+export function convertToMMK(amount: number, currentCurrencyCode: string, exchangeRate: number): number {
+  if (currentCurrencyCode === 'MMK') {
+    return amount
+  }
+  
+  // Convert from current currency to MMK
+  return amount / exchangeRate
+}
+
+/**
+ * Safely convert string or number to number with fallback
+ */
+export function safeNumber(value: string | number | null | undefined, fallback: number = 0): number {
+  if (value === null || value === undefined) {
+    return fallback
+  }
+  
+  const num = Number(value)
+  return isNaN(num) ? fallback : num
 }

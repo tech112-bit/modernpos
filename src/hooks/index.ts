@@ -9,4 +9,4 @@ export { clearAllCaches, getCacheStats } from './useSmartDataFetching'
 export { getCurrentAuthState, clearAuthState } from './useSmartAuth'
 
 // Mobile layout hooks
-export { default as useMobileLayout, useMobileLayoutUtils } from './useMobileLayout'
+export { default as useMobileLayout } from './useMobileLayout'

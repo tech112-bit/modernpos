@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { validateCsrfToken } from '@/hooks/useCsrfToken'
+import { ProductionErrorHandler } from '@/lib/error-handler'
 import { extractTokenFromCookies } from '@/lib/secure-cookies'
+import { executeTransaction, isRetryableError } from '@/lib/db'
+import { prisma } from '@/lib/db'
 
 // Validation schema for creating sales
 const createSaleSchema = z.object({
@@ -100,11 +102,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error fetching sales:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch sales' },
-      { status: 500 }
-    )
+    return ProductionErrorHandler.handleDatabaseError(error, 'fetching sales')
   }
 }
 
@@ -158,8 +156,8 @@ export async function POST(request: NextRequest) {
     // Calculate total
     const total = validatedData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0) - validatedData.discount
     
-    // Start a transaction
-    const result = await prisma.$transaction(async (tx) => {
+    // Start a transaction with enhanced error handling and retry logic
+    const result = await executeTransaction(async (tx) => {
             // Create the sale
       const sale = await tx.sales.create({
         data: {
@@ -216,10 +214,7 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    console.error('Error creating sale:', error)
-    return NextResponse.json(
-      { error: 'Failed to create sale' },
-      { status: 500 }
-    )
+    // Use the enhanced error handler for consistent error responses
+    return ProductionErrorHandler.handleDatabaseError(error, 'creating sale')
   }
 }

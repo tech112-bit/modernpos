@@ -80,6 +80,16 @@ function useSmartAuth(): UseSmartAuthReturn {
         const userData = await response.json()
         const userInfo = userData.user
         
+        // Cache user data in localStorage to prevent flash on reload
+        try {
+          localStorage.setItem('cached-user', JSON.stringify({
+            user: userInfo,
+            timestamp: Date.now()
+          }))
+        } catch (error) {
+          // Ignore localStorage errors
+        }
+        
         updateGlobalAuthState({ 
           user: userInfo, 
           loading: false, 
@@ -115,20 +125,25 @@ function useSmartAuth(): UseSmartAuthReturn {
   // Login function
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
-      console.log('🔐 Attempting login for:', email)
-      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ email, password })
       })
-
-      console.log('🔐 Login response status:', response.status)
       
       if (response.ok) {
         const data = await response.json()
-        console.log('✅ Login successful, user data:', data)
+        
+        // Cache user data in localStorage to prevent flash on reload
+        try {
+          localStorage.setItem('cached-user', JSON.stringify({
+            user: data.user,
+            timestamp: Date.now()
+          }))
+        } catch (error) {
+          // Ignore localStorage errors
+        }
         
         // Update both local and global state
         updateGlobalAuthState({ 
@@ -146,7 +161,6 @@ function useSmartAuth(): UseSmartAuthReturn {
         return true
       } else {
         const errorData = await response.json()
-        console.log('❌ Login failed:', errorData)
         return false
       }
     } catch (error) {
@@ -158,15 +172,13 @@ function useSmartAuth(): UseSmartAuthReturn {
   // Logout function
   const logout = useCallback(async (): Promise<void> => {
     try {
-      console.log('🚪 Logging out user')
-      
       const response = await fetch('/api/auth/logout', { 
         method: 'POST',
         credentials: 'include'
       })
       
       if (response.ok) {
-        console.log('✅ Logout successful')
+        // Logout successful
       } else {
         console.error('❌ Logout failed:', response.status)
       }
@@ -180,6 +192,13 @@ function useSmartAuth(): UseSmartAuthReturn {
         lastCheck: Date.now() 
       })
       setUser(null)
+      
+      // Clear cached user data
+      try {
+        localStorage.removeItem('cached-user')
+      } catch (error) {
+        // Ignore localStorage errors
+      }
       
       // Clear all caches
       if (typeof window !== 'undefined' && window.clearAllCaches) {
@@ -205,11 +224,37 @@ function useSmartAuth(): UseSmartAuthReturn {
       setLoading(false)
     }
     
-    // Check auth if needed
-    if (!globalAuthState.user && !shouldSkipAuthCheck()) {
-      checkAuth()
+    // Check if we have cached auth data in localStorage to prevent flash
+    const checkCachedAuth = () => {
+      try {
+        const cachedUser = localStorage.getItem('cached-user')
+        if (cachedUser && !globalAuthState.user) {
+          const userData = JSON.parse(cachedUser)
+          // Only use cached data if it's recent (less than 1 hour old)
+          if (userData.timestamp && Date.now() - userData.timestamp < 3600000) {
+            updateGlobalAuthState({ 
+              user: userData.user, 
+              loading: false, 
+              lastCheck: Date.now() 
+            })
+            setUser(userData.user)
+            setLoading(false)
+            return
+          }
+        }
+      } catch (error) {
+        // Clear invalid cached data
+        localStorage.removeItem('cached-user')
+      }
+      
+      // Check auth if needed
+      if (!globalAuthState.user && !shouldSkipAuthCheck()) {
+        checkAuth()
+      }
     }
-  }, [checkAuth, shouldSkipAuthCheck, user])
+    
+    checkCachedAuth()
+  }, [checkAuth, shouldSkipAuthCheck, user, updateGlobalAuthState])
 
   // Cleanup on unmount
   useEffect(() => {

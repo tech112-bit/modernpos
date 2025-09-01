@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { useParams } from 'next/navigation'
-import { useCurrency } from '@/contexts/CurrencyContext'
+import { useRouter, useParams } from 'next/navigation'
 import { useNotifications } from '@/contexts/NotificationContext'
-import CurrencySelector from '@/components/CurrencySelector'
+import { useCurrency } from '@/contexts/CurrencyContext'
+import { LoadingSpinner, Card } from '@/components/ui'
 import { useCsrfToken } from '@/hooks/useCsrfToken'
+import { transformProductData, transformToApiFormat, convertToMMK, safeNumber, type TransformedProduct } from '@/lib/utils'
 import {
   ArrowLeftIcon,
   CheckIcon,
@@ -16,13 +16,13 @@ import {
 interface Product {
   id: string
   name: string
-  description?: string
-  price: number
-  cost: number
+  description: string
+  price: number | string
+  cost: number | string
   stock: number
   category: string
   sku: string
-  barcode?: string
+  barcode: string
 }
 
 interface Category {
@@ -52,20 +52,13 @@ export default function EditProductPage() {
   const fetchProduct = async () => {
     try {
       const response = await fetch(`/api/products/${productId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setProduct({
-          id: data.id,
-          name: data.name,
-          description: data.description || '',
-          price: data.price,
-          cost: data.cost,
-          stock: data.stock,
-          category: data.category.id,
-          sku: data.sku,
-          barcode: data.barcode || ''
-        })
-      } else {
+              if (response.ok) {
+          const data = await response.json()
+          
+          // Use the reusable transformation utility for consistent data handling
+          const transformedProduct = transformProductData(data)
+          setProduct(transformedProduct)
+        } else {
         setError('Product not found')
       }
     } catch (error) {
@@ -96,19 +89,15 @@ export default function EditProductPage() {
     setError('')
 
     try {
-      // Convert price and cost to MMK before sending to API
-      const mmkPrice = convertToMMK(Number(product.price))
-      const mmkCost = convertToMMK(Number(product.cost))
+      // Convert price and cost to MMK before sending to API using reusable utility
+      const mmkPrice = convertToMMK(safeNumber(product.price), currentCurrency.code, currentCurrency.exchangeRate)
+      const mmkCost = convertToMMK(safeNumber(product.cost), currentCurrency.code, currentCurrency.exchangeRate)
 
+      // Use the reusable transformation utility for consistent API data format
       const productData = {
-        name: product.name,
-        description: product.description || '',
-        sku: product.sku,
-        barcode: product.barcode || '',
+        ...transformToApiFormat(product),
         price: mmkPrice,
         cost: mmkCost,
-        stock: Number(product.stock),
-        category_id: product.category,
         csrfToken: csrfToken
       }
 
@@ -197,15 +186,7 @@ export default function EditProductPage() {
     }
   }
 
-  // Helper function to convert current currency amount to MMK
-  const convertToMMK = (amount: number): number => {
-    if (!currentCurrency || currentCurrency.code === 'MMK') {
-      return amount
-    }
-    
-    // Convert from current currency to MMK
-    return amount / currentCurrency.exchangeRate
-  }
+
 
   // Helper function to get currency symbol
   const getCurrencySymbol = () => {
@@ -299,7 +280,7 @@ export default function EditProductPage() {
               {currentCurrency?.name} ({currentCurrency?.code}) - {currentCurrency?.symbol}
             </p>
           </div>
-          <CurrencySelector />
+          {/* CurrencySelector component was removed, so this section is now empty */}
         </div>
       </div>
 
