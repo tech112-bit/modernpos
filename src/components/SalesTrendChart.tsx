@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import type { Chart } from 'chart.js'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -89,14 +90,14 @@ const createChartOptions = (formatCurrency: (amount: number) => string, isMobile
           ...(isMobile && {
             boxWidth: 8,
             boxHeight: 8,
-            generateLabels: (chart: any) => {
-              const datasets = chart.data.datasets
-              return datasets.map((dataset: any, i: number) => ({
-                text: dataset.label,
-                fillStyle: dataset.backgroundColor || dataset.borderColor,
-                strokeStyle: dataset.borderColor,
+            generateLabels: (chart: Chart) => {
+              const datasets = (chart.data.datasets || []) as Array<{ label?: string; backgroundColor?: string; borderColor?: string }>
+              return datasets.map((dataset, i: number) => ({
+                text: dataset.label || '',
+                fillStyle: dataset.backgroundColor || dataset.borderColor || 'rgba(0,0,0,0.2)',
+                strokeStyle: dataset.borderColor || 'rgba(0,0,0,0.4)',
                 lineWidth: 2,
-                pointStyle: 'circle',
+                pointStyle: 'circle' as const,
                 hidden: !chart.isDatasetVisible(i),
                 index: i
               }))
@@ -151,7 +152,7 @@ const createChartOptions = (formatCurrency: (amount: number) => string, isMobile
           padding: config.spacing.axisPadding,
           // Mobile: Reduce number of ticks to prevent overlap
           maxTicksLimit: isMobile ? 4 : 8,
-          callback: function(value: any, index: number, values: any[]) {
+          callback: function(value: string | number, index: number): string | number | null {
             // Mobile: Show only every other label to prevent overlap
             if (isMobile && index % 2 === 1) return ''
             return value
@@ -176,7 +177,7 @@ const createChartOptions = (formatCurrency: (amount: number) => string, isMobile
           padding: config.spacing.axisPadding,
           // Mobile: Reduce number of ticks and format for better readability
           maxTicksLimit: isMobile ? 4 : 6,
-          callback: function(tickValue: string | number) {
+          callback: function(tickValue: string | number): string | number {
             if (typeof tickValue === 'number') {
               // Mobile: Use abbreviated format for better fit
               if (isMobile && tickValue >= 1000) {
@@ -218,7 +219,7 @@ const createChartOptions = (formatCurrency: (amount: number) => string, isMobile
           padding: config.spacing.axisPadding,
           // Mobile: Reduce number of ticks
           maxTicksLimit: isMobile ? 4 : 6,
-          callback: function(tickValue: string | number) {
+          callback: function(tickValue: string | number): string | number {
             if (typeof tickValue === 'number') {
               // Mobile: Use abbreviated format
               if (isMobile && tickValue >= 10) {

@@ -37,8 +37,28 @@ export async function GET(
         { status: 404 }
       )
     }
+    // Aggregate total spent in base currency (MMK stored in DB)
+    const totals = await prisma.sales.aggregate({
+      where: { customer_id: id },
+      _sum: { total: true }
+    })
 
-    return NextResponse.json(customer)
+    const responseBody = {
+      id: customer.id,
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone,
+      address: customer.address,
+      city: customer.city,
+      state: customer.state,
+      zip_code: customer.zip_code,
+      createdAt: customer.created_at,
+      updatedAt: customer.updated_at,
+      _count: customer._count,
+      totalSpent: Number(totals._sum.total || 0)
+    }
+
+    return NextResponse.json(responseBody)
   } catch (error) {
     console.error('Error fetching customer:', error)
     return NextResponse.json(

@@ -228,7 +228,6 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    const { message, status } = ProductionErrorHandler.handle(error, 'POST /api/products')
-    return NextResponse.json({ error: message }, { status })
+    return ProductionErrorHandler.handle(error, 'POST /api/products')
   }
 }

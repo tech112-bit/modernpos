@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useNotifications } from '@/contexts/NotificationContext'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeftIcon,
@@ -9,6 +10,7 @@ import {
 
 export default function NewCustomerPage() {
   const router = useRouter()
+  const { addNotification } = useNotifications()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -41,10 +43,24 @@ export default function NewCustomerPage() {
       })
 
       if (response.ok) {
-        router.push('/dashboard/customers')
+        const created = await response.json()
+        addNotification({
+          type: 'success',
+          title: 'Customer Created',
+          message: `Customer ID: ${created.id} — Phone: ${created.phone}`,
+          duration: 5000
+        })
+        router.push(`/dashboard/customers/${created.id}`)
       } else {
         const errorData = await response.json()
-        setError(errorData.error || 'Failed to create customer')
+        const message = errorData.error || 'Failed to create customer'
+        setError(message)
+        addNotification({
+          type: 'warning',
+          title: 'Create Customer',
+          message,
+          duration: 6000
+        })
       }
     } catch (err) {
       setError('Failed to create customer. Please try again.')

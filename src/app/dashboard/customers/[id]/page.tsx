@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useNotifications } from '@/contexts/NotificationContext'
+import { useCurrency } from '@/contexts/CurrencyContext'
 import { formatRelativeTime } from '@/lib/utils'
 import {
   ArrowLeftIcon,
@@ -32,6 +33,7 @@ export default function CustomerDetailPage() {
   const router = useRouter()
   const params = useParams()
   const { addNotification } = useNotifications()
+  const { formatCurrency, currentCurrency } = useCurrency()
   const customerId = params.id as string
 
   const [customer, setCustomer] = useState<Customer | null>(null)
@@ -60,7 +62,7 @@ export default function CustomerDetailPage() {
           state: data.state,
           zip_code: data.zip_code,
           createdAt: data.createdAt,
-          totalSpent: 0, // Will be calculated from sales
+          totalSpent: Number(data.totalSpent || 0),
           orderCount: data._count.sales
         })
       } else {
@@ -456,9 +458,9 @@ export default function CustomerDetailPage() {
               Total Spent
             </h3>
             <p className="text-3xl font-bold text-green-600">
-              ${customer.totalSpent.toFixed(2)}
+              {formatCurrency(customer.totalSpent)}
             </p>
-            <p className="text-sm text-gray-500 mt-1">Lifetime value</p>
+            <p className="text-sm text-gray-500 mt-1">Lifetime value in {currentCurrency.code}</p>
           </div>
         </div>
 
