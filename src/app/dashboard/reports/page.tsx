@@ -8,6 +8,7 @@ import { LoadingSpinner, Card } from '@/components/ui'
 import SalesTrendChart from '@/components/SalesTrendChart'
 import { 
   ArrowPathIcon,
+  ChevronDownIcon,
   DocumentArrowDownIcon,
   ChartBarIcon,
   CurrencyDollarIcon,
@@ -302,64 +303,48 @@ export default function ReportsPage() {
           </p>
         </div>
         
-        <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-          {/* Period Selector */}
-          <div className="flex rounded-md shadow-sm">
-            {periods.map((period, index) => (
-              <button
-                key={period.value}
-                onClick={() => handlePeriodChange(period.value as 'today' | 'week' | 'month')}
-                className={`px-4 py-2 text-sm font-medium ${
-                  selectedPeriod === period.value
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                } ${
-                  index === 0 ? 'rounded-l-md' : ''
-                } ${
-                  index === periods.length - 1 ? 'rounded-r-md' : ''
-                } border border-gray-300`}
-              >
-                {period.label}
-              </button>
-            ))}
+        <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap gap-3 sm:gap-3">
+          {/* Period Selector (dropdown style) */}
+          <div className="relative w-full sm:w-48">
+            <select
+              value={selectedPeriod}
+              onChange={(e) => handlePeriodChange(e.target.value as 'today' | 'week' | 'month')}
+              className="w-full appearance-none rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {periods.map(period => (
+                <option key={period.value} value={period.value}>
+                  {period.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
           </div>
 
-          {/* Chart Type Toggle */}
-          <div className="flex rounded-md shadow-sm">
-            <button
-              onClick={() => setChartType('line')}
-              className={`px-3 py-2 text-sm font-medium ${
-                chartType === 'line'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              } rounded-l-md border border-gray-300`}
+          {/* Chart Type Selector (dropdown style) */}
+          <div className="relative w-full sm:w-36">
+            <select
+              value={chartType}
+              onChange={(e) => setChartType(e.target.value as 'line' | 'bar')}
+              className="w-full appearance-none rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              Line
-            </button>
-            <button
-              onClick={() => setChartType('bar')}
-              className={`px-3 py-2 text-sm font-medium ${
-                chartType === 'bar'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              } rounded-r-md border border-gray-300`}
-            >
-              Bar
-            </button>
+              <option value="line">Line</option>
+              <option value="bar">Bar</option>
+            </select>
+            <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
           </div>
 
           {/* Action Buttons */}
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:flex-nowrap">
             <button
               onClick={handleRefresh}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex-1 sm:flex-none"
             >
-              <ArrowPathIcon className="h-4 w-4 mr-2" />
-              Refresh
+              <ArrowPathIcon className="h-4 w-4 mr-2 md:mr-0 lg:mr-2" />
+              <span className="inline md:hidden lg:inline">Refresh</span>
             </button>
             <button
               onClick={handleExportReport}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex-1 sm:flex-none"
             >
               <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
               Export

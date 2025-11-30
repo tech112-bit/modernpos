@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { useSettings } from '@/contexts/SettingsContext'
@@ -36,24 +37,28 @@ interface ProductsApiResponse {
 }
 
 export default function ProductsPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { addNotification } = useNotifications()
   const { formatCurrency } = useCurrency()
   const { settings } = useSettings()
   const { user } = useAuth()
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [showImport, setShowImport] = useState(false)
+  const filterInputClasses = 'block w-full pl-8 xs:pl-9 md:pl-10 lg:pl-12 pr-2.5 xs:pr-3 md:pr-3 lg:pr-4 py-2 xs:py-2.5 md:py-2.5 lg:py-3 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs xs:text-sm md:text-sm lg:text-base'
 
   // Use smart data fetching with caching
   const { 
     data: productsData, 
     loading, 
     error, 
-    refetch: fetchProducts
+    refetch: fetchProducts,
+    clearCache
   } = useSmartDataFetching<Product[]>({
     endpoint: '/api/products',
     autoFetch: !!user,
-    cacheDuration: 300000, // Cache for 5 minutes
-    debounceDelay: 500, // Debounce API calls
+    cacheDuration: 60000, // Short cache to keep inventory fresh
+    debounceDelay: 250, // Quicker refetch on demand
     transform: (data: unknown) => {
       const response = data as ProductsApiResponse
       return response?.products || []
@@ -128,6 +133,17 @@ export default function ProductsPage() {
   
   const categories = ['all', ...Array.from(new Set(products.map(p => p.categories?.name || 'Uncategorized')))]
 
+  // Force-refresh when redirected from product creation
+  useEffect(() => {
+    if (searchParams.get('refresh') === '1') {
+      ;(async () => {
+        clearCache()
+        await fetchProducts()
+        router.replace('/dashboard/products')
+      })()
+    }
+  }, [searchParams, clearCache, fetchProducts, router])
+
   if (loading) {
     return <LoadingSpinner />
   }
@@ -187,7 +203,7 @@ export default function ProductsPage() {
               placeholder="Search products..."
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="block w-full pl-8 xs:pl-9 md:pl-10 lg:pl-12 pr-2.5 xs:pr-3 md:pr-3 lg:pr-4 py-1.5 xs:py-2 md:py-2.5 lg:py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs xs:text-sm md:text-sm lg:text-base"
+              className={filterInputClasses}
             />
           </div>
 
@@ -199,7 +215,7 @@ export default function ProductsPage() {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="block w-full pl-8 xs:pl-9 md:pl-10 lg:pl-12 pr-2.5 xs:pr-3 md:pr-3 lg:pr-4 py-1.5 xs:py-2 md:py-2.5 lg:py-3 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs xs:text-sm md:text-sm lg:text-base"
+              className={filterInputClasses}
             >
               {categories.map((category) => (
                 <option key={category} value={category}>

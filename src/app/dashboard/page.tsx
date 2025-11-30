@@ -13,7 +13,6 @@ import { useSmartDataFetching } from '@/hooks'
 import QuickSearch from '@/components/QuickSearch'
 import CurrencySelector from '@/components/CurrencySelector'
 import LowStockAlert from '@/components/LowStockAlert'
-import CacheManager from '@/components/CacheManager'
 
 import {
   PlusIcon,
@@ -177,25 +176,20 @@ export default function DashboardPage() {
           <div className="grid grid-cols-3 gap-1.5 sm:hidden">
             <div className="flex justify-center">
               <button
-                onClick={fetchDashboardStats}
-                disabled={loading}
-                className="group relative inline-flex items-center justify-center p-1.5 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
-                title="Refresh Dashboard"
-              >
-                {loading ? (
-                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-blue-500"></div>
-                ) : (
-                  <ArrowPathIcon className="h-3.5 w-3.5" />
-                )}
-                {/* Long press text overlay */}
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[8px] rounded opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                  Refresh
-                </div>
-              </button>
-            </div>
-            <div className="flex justify-center">
-              <Link
-                href="/dashboard/sales/new"
+            onClick={fetchDashboardStats}
+            disabled={loading}
+            className="group relative inline-flex items-center justify-center p-1.5 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+          >
+            {loading ? (
+              <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-blue-500"></div>
+            ) : (
+              <ArrowPathIcon className="h-3.5 w-3.5" />
+            )}
+          </button>
+        </div>
+        <div className="flex justify-center">
+          <Link
+            href="/dashboard/sales/new"
                 className="group relative inline-flex items-center justify-center px-2.5 py-1.5 border border-transparent rounded-md shadow-sm text-[10px] font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
               >
                 <ShoppingCartIcon className="h-3.5 w-3.5" />
@@ -218,17 +212,12 @@ export default function DashboardPage() {
               onClick={fetchDashboardStats}
               disabled={loading}
               className="group relative inline-flex items-center justify-center p-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
-              title="Refresh Dashboard"
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
               ) : (
                 <ArrowPathIcon className="h-4 w-4" />
               )}
-              {/* Hover tooltip for tablet */}
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                Refresh Dashboard
-              </div>
             </button>
             <Link
               href="/dashboard/sales/new"
@@ -250,10 +239,9 @@ export default function DashboardPage() {
             <button
               onClick={fetchDashboardStats}
               disabled={loading}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
             >
-              <ArrowPathIcon className="h-4 w-4 mr-2" />
-              {loading ? 'Refreshing...' : 'Refresh'}
+              <ArrowPathIcon className="h-4 w-4" />
             </button>
             <Link
               href="/dashboard/sales/new"
@@ -373,9 +361,6 @@ export default function DashboardPage() {
           </Card>
         )}
       </div>
-
-      {/* Cache Manager - Show cache statistics */}
-      <CacheManager />
 
       {/* Quick Actions */}
       <Card>

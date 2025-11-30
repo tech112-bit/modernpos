@@ -34,6 +34,10 @@ export default function NewProductPage() {
   })
 
   const [categories, setCategories] = useState<Category[]>([])
+  const inputBaseClasses = 'block w-full rounded-md border border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-xs xs:text-sm sm:text-base'
+  const inputPaddingClasses = 'px-3 xs:px-3.5 sm:px-4 py-2 xs:py-2.5 sm:py-3'
+  const inputClasses = `${inputBaseClasses} ${inputPaddingClasses}`
+  const actionButtonBase = 'inline-flex items-center justify-center rounded-md shadow-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors text-xs xs:text-sm sm:text-base'
 
   useEffect(() => {
     fetchCategories()
@@ -93,7 +97,7 @@ export default function NewProductPage() {
           duration: 5000
         })
         // Redirect back to products list
-        router.push('/dashboard/products')
+        router.push('/dashboard/products?refresh=1')
       } else {
         const errorData = await response.json()
         setError(errorData.error || 'Failed to create product')
@@ -156,7 +160,7 @@ export default function NewProductPage() {
             type="submit"
             form="new-product-form"
             disabled={saving}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            className={`${actionButtonBase} px-3 xs:px-4 sm:px-5 py-2 xs:py-2.5 sm:py-3 border border-transparent text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 disabled:opacity-50`}
           >
             <PlusIcon className="h-4 w-4 mr-2" />
             {saving ? 'Creating...' : 'Create Product'}
@@ -210,7 +214,7 @@ export default function NewProductPage() {
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   required
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className={`mt-1 ${inputClasses}`}
                 />
               </div>
 
@@ -218,12 +222,12 @@ export default function NewProductPage() {
                 <label htmlFor="category" className="block text-sm font-medium text-gray-700">
                   Category *
                 </label>
-                                        <select
+                        <select
                           id="category"
                           value={formData.category}
                           onChange={(e) => handleInputChange('category', e.target.value)}
                           required
-                          className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          className={`mt-1 ${inputClasses}`}
                         >
                           <option value="">Select a category</option>
                           {categories.map((category) => (
@@ -244,7 +248,7 @@ export default function NewProductPage() {
                   value={formData.sku}
                   onChange={(e) => handleInputChange('sku', e.target.value)}
                   required
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className={`mt-1 ${inputClasses}`}
                 />
               </div>
 
@@ -257,7 +261,7 @@ export default function NewProductPage() {
                   id="barcode"
                   value={formData.barcode}
                   onChange={(e) => handleInputChange('barcode', e.target.value)}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className={`mt-1 ${inputClasses}`}
                 />
               </div>
 
@@ -277,7 +281,7 @@ export default function NewProductPage() {
                       value={formatInputValue(formData.price)}
                       onChange={(e) => handleInputChange('price', e.target.value)}
                       required
-                      className="pl-12 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className={`pl-12 pr-3 xs:pr-3.5 sm:pr-4 ${inputBaseClasses} py-2 xs:py-2.5 sm:py-3`}
                     />
                   </div>
                 <p className="mt-1 text-xs text-gray-500">
@@ -302,7 +306,7 @@ export default function NewProductPage() {
                       value={formatInputValue(formData.cost)}
                       onChange={(e) => handleInputChange('cost', e.target.value)}
                       required
-                      className="pl-12 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className={`pl-12 pr-3 xs:pr-3.5 sm:pr-4 ${inputBaseClasses} py-2 xs:py-2.5 sm:py-3`}
                     />
                   </div>
                 <p className="mt-1 text-xs text-gray-500">
@@ -322,7 +326,7 @@ export default function NewProductPage() {
                   value={formData.stock}
                   onChange={(e) => handleInputChange('stock', e.target.value)}
                   required
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className={`mt-1 ${inputClasses}`}
                 />
               </div>
             </div>
@@ -336,7 +340,7 @@ export default function NewProductPage() {
                 rows={4}
                 value={formData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className={`mt-1 ${inputClasses}`}
               />
             </div>
           </div>

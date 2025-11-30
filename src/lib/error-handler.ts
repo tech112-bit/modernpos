@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { isRetryableError } from './db'
 
 export class ProductionErrorHandler {
@@ -7,6 +8,14 @@ export class ProductionErrorHandler {
     
     // Handle Prisma errors specifically
     if (error instanceof Error) {
+      // Prisma can't reach the database (e.g., Supabase down or wrong URL)
+      if (error instanceof Prisma.PrismaClientInitializationError) {
+        return NextResponse.json(
+          { error: 'Database connection failed. Please verify DATABASE_URL or try again shortly.' },
+          { status: 503 }
+        )
+      }
+
       // Check if it's a retryable Prisma error
       if (isRetryableError(error)) {
         return NextResponse.json(

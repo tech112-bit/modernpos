@@ -1,9 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
 import { z } from 'zod'
-import { validateCsrfToken } from '@/hooks/useCsrfToken'
 import { ProductionErrorHandler } from '@/lib/error-handler'
 import { extractTokenFromCookies } from '@/lib/secure-cookies'
+
+const numeric = (label: string) =>
+  z.preprocess((val) => {
+    if (typeof val === 'string') {
+      const parsed = parseFloat(val)
+      return isNaN(parsed) ? val : parsed
+    }
+    return val
+  }, z.number().positive(`${label} must be positive`))
+
+const integer = (label: string) =>
+  z.preprocess((val) => {
+    if (typeof val === 'string') {
+      const parsed = parseInt(val, 10)
+      return isNaN(parsed) ? val : parsed
+    }
+    return val
+  }, z.number().int().min(0, `${label} must be non-negative`))
 
 // Validation schema for creating products
 const createProductSchema = z.object({
@@ -11,9 +29,9 @@ const createProductSchema = z.object({
   description: z.string().optional(),
   sku: z.string().min(1, 'SKU is required'),
   barcode: z.string().optional(),
-  price: z.number().positive('Price must be positive'),
-  cost: z.number().positive('Cost must be positive'),
-  stock: z.number().int().min(0, 'Stock must be non-negative'),
+  price: numeric('Price'),
+  cost: numeric('Cost'),
+  stock: integer('Stock'),
   category_id: z.string().min(1, 'Category is required')
 })
 
@@ -77,7 +95,7 @@ export async function GET(request: NextRequest) {
       where.user_id = userId
     }
 
-    // Get products with category information
+    // Get products with category information (no variants table)
     const products = await prisma.products.findMany({
       where,
       include: {
@@ -106,11 +124,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error fetching products:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch products' },
-      { status: 500 }
-    )
+    return ProductionErrorHandler.handleDatabaseError(error, 'fetching products')
   }
 }
 
@@ -201,8 +215,8 @@ export async function POST(request: NextRequest) {
         description: validatedData.description || '',
         sku: validatedData.sku,
         barcode: validatedData.barcode || '',
-        price: validatedData.price,
-        cost: validatedData.cost,
+        price: new Prisma.Decimal(validatedData.price),
+        cost: new Prisma.Decimal(validatedData.cost),
         stock: validatedData.stock,
         category_id: validatedData.category_id,
         user_id: userId,

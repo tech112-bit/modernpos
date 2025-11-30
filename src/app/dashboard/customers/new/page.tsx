@@ -130,7 +130,7 @@ export default function NewCustomerPage() {
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   required
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-4 pr-4 py-3"
                 />
               </div>
 
@@ -144,7 +144,7 @@ export default function NewCustomerPage() {
                   value={formData.phone}
                   onChange={(e) => handleInputChange('phone', e.target.value)}
                   required
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-4 pr-4 py-3"
                 />
               </div>
 
@@ -157,7 +157,7 @@ export default function NewCustomerPage() {
                   id="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-4 pr-4 py-3"
                 />
               </div>
 
@@ -170,7 +170,7 @@ export default function NewCustomerPage() {
                   id="address"
                   value={formData.address}
                   onChange={(e) => handleInputChange('address', e.target.value)}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-4 pr-4 py-3"
                 />
               </div>
 
@@ -183,7 +183,7 @@ export default function NewCustomerPage() {
                   id="city"
                   value={formData.city}
                   onChange={(e) => handleInputChange('city', e.target.value)}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-4 pr-4 py-3"
                 />
               </div>
 
@@ -196,7 +196,7 @@ export default function NewCustomerPage() {
                   id="state"
                   value={formData.state}
                   onChange={(e) => handleInputChange('state', e.target.value)}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-4 pr-4 py-3"
                 />
               </div>
 
@@ -209,7 +209,7 @@ export default function NewCustomerPage() {
                   id="zip_code"
                   value={formData.zip_code}
                   onChange={(e) => handleInputChange('zip_code', e.target.value)}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-4 pr-4 py-3"
                 />
               </div>
             </div>

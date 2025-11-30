@@ -1,9 +1,11 @@
 'use client'
 
-
+import { useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { formatRelativeTime } from '@/lib/utils'
 import { LoadingSpinner, Card } from '@/components/ui'
 import { useSmartDataFetching, useSearch } from '@/hooks'
@@ -42,6 +44,9 @@ interface SalesApiResponse {
 }
 
 export default function SalesPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { user, loading: authLoading } = useAuth()
   const { addNotification } = useNotifications()
   const { formatCurrency } = useCurrency()
 
@@ -50,12 +55,13 @@ export default function SalesPage() {
     data: salesData, 
     loading, 
     error, 
-    refetch: fetchSales 
+    refetch: fetchSales,
+    clearCache
   } = useSmartDataFetching<Sale[]>({
     endpoint: '/api/sales',
-    autoFetch: true,
-    cacheDuration: 300000, // Cache for 5 minutes
-    debounceDelay: 500, // Debounce API calls
+    autoFetch: !!user && !authLoading,
+    cacheDuration: 60000, // Keep cache short so totals refresh quickly
+    debounceDelay: 250, // Faster response on refetch
     transform: (data: unknown) => (data as SalesApiResponse).sales || []
   })
 
@@ -86,6 +92,22 @@ export default function SalesPage() {
   const totalSales = sales.length
   const averageOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0
 
+  // Force-refresh when redirected from new sale creation
+  useEffect(() => {
+    if (authLoading) return
+    if (searchParams.get('refresh') === '1') {
+      ;(async () => {
+        clearCache()
+        await fetchSales()
+        router.replace('/dashboard/sales')
+      })()
+    }
+  }, [authLoading, searchParams, clearCache, fetchSales, router])
+
+  if (authLoading) {
+    return <LoadingSpinner />
+  }
+
   if (loading) {
     return <LoadingSpinner />
   }
@@ -103,7 +125,7 @@ export default function SalesPage() {
         <div className="mt-3 xs:mt-4 sm:mt-0">
           <Link
             href="/dashboard/sales/new"
-            className="inline-flex items-center px-2.5 xs:px-3 md:px-4 py-1.5 xs:py-2 border border-transparent rounded-md shadow-sm text-xs xs:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex items-center px-3 xs:px-3.5 md:px-4 py-2 xs:py-2.5 md:py-3 border border-transparent rounded-md shadow-sm text-xs xs:text-sm md:text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             <ShoppingCartIcon className="h-3 w-3 xs:h-4 xs:w-4" />
           </Link>
@@ -121,7 +143,7 @@ export default function SalesPage() {
             placeholder="Search sales by customer, user, or sale ID..."
             value={searchTerm}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="block w-full pl-8 xs:pl-10 pr-2.5 xs:pr-3 py-1.5 xs:py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs xs:text-sm"
+            className="block w-full pl-8 xs:pl-10 pr-2.5 xs:pr-3 py-2 xs:py-2.5 sm:py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm xs:text-sm sm:text-base"
           />
         </div>
       </Card>

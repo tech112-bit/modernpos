@@ -50,6 +50,7 @@ function useSmartDataFetching<T = unknown>({
   
   const abortControllerRef = useRef<AbortController | null>(null)
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const hasFetchedRef = useRef(false)
   const cacheKey = useMemo(() => `${endpoint}`, [endpoint])
 
   // Check if data is still fresh in cache
@@ -120,7 +121,23 @@ function useSmartDataFetching<T = unknown>({
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        let errorMessage = `HTTP error! status: ${response.status}`
+        try {
+          const errorBody = await response.clone().json()
+          if (errorBody?.error) {
+            errorMessage = `${response.status} ${errorBody.error}`
+          }
+        } catch {
+          try {
+            const errorText = await response.clone().text()
+            if (errorText) {
+              errorMessage = `${response.status} ${errorText}`
+            }
+          } catch {
+            // ignore parse errors, keep default message
+          }
+        }
+        throw new Error(errorMessage)
       }
 
       const rawData = await response.json()
@@ -161,7 +178,8 @@ function useSmartDataFetching<T = unknown>({
 
   // Auto-fetch when dependencies change
   useEffect(() => {
-    if (autoFetch) {
+    if (autoFetch && !hasFetchedRef.current) {
+      hasFetchedRef.current = true
       debouncedFetch()
     }
     
@@ -171,6 +189,11 @@ function useSmartDataFetching<T = unknown>({
       }
     }
   }, [autoFetch, debouncedFetch, ...dependencies])
+
+  // Reset fetch guard when the endpoint changes
+  useEffect(() => {
+    hasFetchedRef.current = false
+  }, [cacheKey])
 
   // Cleanup on unmount
   useEffect(() => {

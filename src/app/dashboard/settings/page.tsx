@@ -6,6 +6,7 @@ import { useNotifications } from '@/contexts/NotificationContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card } from '@/components/ui'
 import PasswordResetModal from '@/components/PasswordResetModal'
+import CacheManager from '@/components/CacheManager'
 
 import { 
   CogIcon, 
@@ -259,6 +260,9 @@ export default function SettingsPage() {
             </div>
           </Card>
         )}
+
+        {/* Cache Manager - moved here for non-admin roles */}
+        {user && user.role !== 'ADMIN' && <CacheManager />}
 
         {/* Notification Settings */}
         <Card>

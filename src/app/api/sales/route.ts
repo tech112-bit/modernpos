@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { validateCsrfToken } from '@/hooks/useCsrfToken'
 import { ProductionErrorHandler } from '@/lib/error-handler'
 import { extractTokenFromCookies } from '@/lib/secure-cookies'
-import { executeTransaction, isRetryableError } from '@/lib/db'
+import { executeTransaction } from '@/lib/db'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+import { ensureStockAvailability, decrementStock } from '@/lib/stock'
 
 // Validation schema for creating sales
 const createSaleSchema = z.object({
   customer_id: z.string().optional(),
   items: z.array(z.object({
     product_id: z.string().min(1, 'Product is required'),
+    variant_id: z.string().optional(),
     quantity: z.number().int().positive('Quantity must be positive'),
     price: z.number().positive('Price must be positive')
   })).min(1, 'At least one item is required'),
@@ -21,7 +23,7 @@ const createSaleSchema = z.object({
 // GET /api/sales - List all sales
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+  const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const skip = (page - 1) * limit
@@ -155,10 +157,18 @@ export async function POST(request: NextRequest) {
     
     // Calculate total
     const total = validatedData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0) - validatedData.discount
-    
+
+    // Build stock items without variant_id to stay compatible with unmigrated DBs
+    const stockItems = validatedData.items.map(item => ({
+      productId: item.product_id,
+      variantId: undefined,
+      quantity: item.quantity
+    }))
+
     // Start a transaction with enhanced error handling and retry logic
     const result = await executeTransaction(async (tx) => {
-            // Create the sale
+      await ensureStockAvailability(tx, stockItems)
+
       const sale = await tx.sales.create({
         data: {
           id: `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -190,18 +200,7 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // Update product stock
-      for (const item of validatedData.items) {
-                 await tx.products.update({
-          where: { id: item.product_id },
-          data: {
-            stock: {
-              decrement: item.quantity
-            }
-          }
-        })
-      }
-
+      await decrementStock(tx, stockItems)
       return sale
     })
 

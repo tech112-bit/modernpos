@@ -130,7 +130,7 @@ export default function NewCategoryPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className="pl-10 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm pl-12 pr-4 py-3"
                   placeholder="e.g., Electronics, Clothing, Food"
                 />
               </div>
