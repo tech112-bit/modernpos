@@ -5,54 +5,25 @@ import { useRouter } from 'next/navigation'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { useCsrfToken } from '@/hooks/useCsrfToken'
+import { type SaleProduct, type SaleCustomerSummary, type CartItem, type PaymentStatus, type SaleChannel } from '@/types/sale'
+import { createSale, listSaleCustomers, listSaleProducts } from '@/actions/sales'
+import { getErrorMessage } from '@/actions/http'
 import {
   ArrowLeftIcon,
   PlusIcon,
   TrashIcon,
-  ShoppingCartIcon,
-  UserIcon
+  ShoppingCartIcon
 } from '@heroicons/react/24/outline'
-
-interface Product {
-  id: string
-  name: string
-  description?: string
-  sku: string
-  barcode?: string
-  price: number | string // Can be Decimal from database (string) or number
-  cost: number | string
-  stock: number
-  categories: {
-    name: string
-  }
-}
-
-interface Customer {
-  id: string
-  name: string
-  phone: string
-}
-
-interface CartItem {
-  productId: string
-  name: string
-  sku: string
-  price: number
-  quantity: number
-  stock: number
-}
 
 // Client-side only currency symbol component to prevent hydration errors
 function CurrencySymbol() {
   const { formatCurrency } = useCurrency()
   const [currencySymbol, setCurrencySymbol] = useState('')
-  const [isMMK, setIsMMK] = useState(false)
 
   useEffect(() => {
     // Only run on client side to prevent hydration mismatch
     const symbol = formatCurrency(0).replace(/[\d.,]/g, '')
     setCurrencySymbol(symbol)
-    setIsMMK(symbol.includes('MMK'))
   }, [formatCurrency])
 
   // Return empty on server side to prevent hydration mismatch
@@ -72,11 +43,13 @@ export default function NewSalePage() {
   const { addNotification } = useNotifications()
   const { formatCurrency } = useCurrency()
   const csrfToken = useCsrfToken()
-  const [products, setProducts] = useState<Product[]>([])
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [products, setProducts] = useState<SaleProduct[]>([])
+  const [customers, setCustomers] = useState<SaleCustomerSummary[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [selectedCustomer, setSelectedCustomer] = useState<string>('')
   const [paymentType, setPaymentType] = useState<'CASH' | 'CARD' | 'MOBILE_PAY'>('CASH')
+  const [saleChannel, setSaleChannel] = useState<SaleChannel>('IN_STORE')
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('PAID')
   const [discount, setDiscount] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(false)
@@ -102,11 +75,8 @@ export default function NewSalePage() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('/api/products')
-      if (response.ok) {
-        const data = await response.json()
-        setProducts(data.products)
-      }
+      const data = await listSaleProducts()
+      setProducts(data)
     } catch (error) {
       console.error('Error fetching products:', error)
     }
@@ -114,17 +84,14 @@ export default function NewSalePage() {
 
   const fetchCustomers = async () => {
     try {
-      const response = await fetch('/api/customers')
-      if (response.ok) {
-        const data = await response.json()
-        setCustomers(data.customers)
-      }
+      const data = await listSaleCustomers()
+      setCustomers(data)
     } catch (error) {
       console.error('Error fetching customers:', error)
     }
   }
 
-  const addToCart = (product: Product) => {
+  const addToCart = (product: SaleProduct) => {
     const existingItem = cart.find(item => item.productId === product.id)
     
     if (existingItem) {
@@ -193,6 +160,39 @@ export default function NewSalePage() {
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   const total = subtotal - discount
 
+  const getDefaultPaymentStatus = (
+    channel: SaleChannel,
+    type: 'CASH' | 'CARD' | 'MOBILE_PAY'
+  ): PaymentStatus => {
+    if (channel === 'IN_STORE') {
+      return 'PAID'
+    }
+    return type === 'CASH' ? 'CASH_ON_DELIVERY' : 'NOT_PAID'
+  }
+
+  const resolvePaymentStatus = (
+    channel: SaleChannel,
+    type: 'CASH' | 'CARD' | 'MOBILE_PAY',
+    status?: PaymentStatus
+  ): PaymentStatus => {
+    if (channel === 'IN_STORE') {
+      return 'PAID'
+    }
+    return status ?? getDefaultPaymentStatus(channel, type)
+  }
+
+  const handleSaleChannelChange = (value: SaleChannel) => {
+    setSaleChannel(value)
+    setPaymentStatus(getDefaultPaymentStatus(value, paymentType))
+  }
+
+  const handlePaymentTypeChange = (value: 'CASH' | 'CARD' | 'MOBILE_PAY') => {
+    setPaymentType(value)
+    if (saleChannel === 'ONLINE') {
+      setPaymentStatus(getDefaultPaymentStatus(saleChannel, value))
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (cart.length === 0) {
@@ -212,42 +212,28 @@ export default function NewSalePage() {
           price: item.price
         })),
         payment_type: paymentType,
+        payment_status: resolvePaymentStatus(saleChannel, paymentType, paymentStatus),
+        sale_channel: saleChannel,
         discount,
         csrfToken
       }
 
-      const response = await fetch('/api/sales', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(saleData)
+      await createSale(saleData)
+      addNotification({
+        type: 'success',
+        title: 'Sale Completed',
+        message: `Sale has been completed successfully. Total: ${formatCurrency(total)}`,
+        duration: 5000
       })
-
-      if (response.ok) {
-        addNotification({
-          type: 'success',
-          title: 'Sale Completed',
-          message: `Sale has been completed successfully. Total: ${formatCurrency(total)}`,
-          duration: 5000
-        })
-        router.push('/dashboard/sales?refresh=1')
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Failed to create sale')
-        addNotification({
-          type: 'error',
-          title: 'Sale Failed',
-          message: `Failed to create sale: ${errorData.error || 'Please try again.'}`,
-          duration: 5000
-        })
-      }
-    } catch (err) {
-      setError('Failed to create sale. Please try again.')
+      router.push('/dashboard/sales?refresh=1')
+    } catch (error) {
+      console.error('Failed to create sale:', error)
+      const message = getErrorMessage(error, 'Failed to create sale. Please try again.')
+      setError(message)
       addNotification({
         type: 'error',
         title: 'Sale Failed',
-        message: 'Network error: Failed to create sale. Please try again.',
+        message,
         duration: 5000
       })
     } finally {
@@ -377,7 +363,7 @@ export default function NewSalePage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Payment Type</label>
               <select
                 value={paymentType}
-                onChange={(e) => setPaymentType(e.target.value as 'CASH' | 'CARD' | 'MOBILE_PAY')}
+                onChange={(e) => handlePaymentTypeChange(e.target.value as 'CASH' | 'CARD' | 'MOBILE_PAY')}
                 className={inputClasses}
               >
                 <option value="CASH">Cash</option>
@@ -385,6 +371,40 @@ export default function NewSalePage() {
                 <option value="MOBILE_PAY">Mobile Payment</option>
               </select>
             </div>
+
+            {/* Order Type */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Order Type</label>
+              <select
+                value={saleChannel}
+                onChange={(e) => handleSaleChannelChange(e.target.value as SaleChannel)}
+                className={inputClasses}
+              >
+                <option value="IN_STORE">In-store</option>
+                <option value="ONLINE">Online</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Payment status is only configurable for online orders.
+              </p>
+            </div>
+
+            {saleChannel === 'ONLINE' && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Status</label>
+                <select
+                  value={paymentStatus}
+                  onChange={(e) => setPaymentStatus(e.target.value as PaymentStatus)}
+                  className={inputClasses}
+                >
+                  <option value="NOT_PAID">Not Paid</option>
+                  <option value="PAID">Paid</option>
+                  <option value="CASH_ON_DELIVERY">Cash on Delivery</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Use "Cash on Delivery" for online customers to collect payment later.
+                </p>
+              </div>
+            )}
 
             {/* Discount */}
             <div className="mb-4">

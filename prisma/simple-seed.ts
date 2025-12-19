@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client'
+import { PaymentType, PrismaClient, type sales as SaleModel } from '@prisma/client'
+import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
@@ -21,7 +22,6 @@ async function main() {
   console.log('🗑️  Cleared existing data')
 
   // Create admin user
-  const bcrypt = require('bcryptjs')
   const hashedPassword = await bcrypt.hash('admin123', 12)
   
   const adminUser = await prisma.users.create({
@@ -155,8 +155,9 @@ async function main() {
   console.log('👥 Created customers')
 
   // Create sales data with realistic, spread-out dates
-  const sales = []
+  const sales: SaleModel[] = []
   const today = new Date()
+  const paymentTypes = [PaymentType.CASH, PaymentType.CARD, PaymentType.MOBILE_PAY] as const
   
   // Create sales over the last 6 months (180 days) instead of just 30 days
   // This will make the data look more realistic and less "new"
@@ -179,11 +180,11 @@ async function main() {
       const quantity = Math.floor(Math.random() * 3) + 1
       const total = Number(product.price) * quantity
       
-      const saleRecord: { id: string; total: any } = await prisma.sales.create({
+      const saleRecord = await prisma.sales.create({
         data: {
           id: generateId('sale', sales.length),
           total: total,
-          payment_type: ['CASH', 'CARD', 'MOBILE_PAY'][Math.floor(Math.random() * 3)] as any,
+          payment_type: paymentTypes[Math.floor(Math.random() * paymentTypes.length)],
           discount: Math.floor(Math.random() * 2000),
           created_at: saleDate,
           updated_at: new Date(),

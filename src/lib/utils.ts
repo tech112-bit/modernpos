@@ -1,6 +1,7 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 // Note: formatDistanceToNow was removed to avoid adding an extra dependency
+import { type ApiProduct, type ProductDetail } from '@/types/product'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -67,41 +68,11 @@ export function formatDateWithRelative(date: string | Date): string {
   }
 }
 
-// Product data transformation utilities
-export interface ApiProduct {
-  id: string
-  name: string
-  description?: string | null
-  price: number | string
-  cost: number | string
-  stock: number
-  sku: string
-  barcode?: string | null
-  categories?: {
-    id: string
-    name: string
-  } | null
-  created_at?: string | Date
-  updated_at?: string | Date
-}
-
-export interface TransformedProduct {
-  id: string
-  name: string
-  description: string
-  price: number | string
-  cost: number | string
-  stock: number
-  category: string
-  sku: string
-  barcode: string
-}
-
 /**
  * Transform API product data to frontend format with null safety
  * This ensures consistent data structure across the application
  */
-export function transformProductData(apiProduct: ApiProduct): TransformedProduct {
+export function transformProductData(apiProduct: ApiProduct): ProductDetail {
   return {
     id: apiProduct.id,
     name: apiProduct.name,
@@ -118,7 +89,7 @@ export function transformProductData(apiProduct: ApiProduct): TransformedProduct
 /**
  * Transform frontend product data to API format
  */
-export function transformToApiFormat(frontendProduct: TransformedProduct): {
+export function transformToApiFormat(frontendProduct: ProductDetail): {
   name: string
   description: string
   sku: string

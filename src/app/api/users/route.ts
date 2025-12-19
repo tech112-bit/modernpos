@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 import { extractTokenFromCookies } from '@/lib/secure-cookies'
 import { verifyToken } from '@/lib/auth'
+import { USER_ROLES, USER_STATUSES } from '@/types/user'
 
 // Helper function to get user from token
 async function getAdminUser(request: NextRequest) {
@@ -88,14 +89,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!['ADMIN', 'USER', 'MANAGER'].includes(role)) {
+    if (!USER_ROLES.includes(role)) {
       return NextResponse.json(
         { error: 'Invalid role. Must be ADMIN, USER, or MANAGER' },
         { status: 400 }
       )
     }
 
-    if (!['ACTIVE', 'INACTIVE', 'SUSPENDED'].includes(status)) {
+    if (!USER_STATUSES.includes(status)) {
       return NextResponse.json(
         { error: 'Invalid status. Must be ACTIVE, INACTIVE, or SUSPENDED' },
         { status: 400 }

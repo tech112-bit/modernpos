@@ -41,6 +41,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const clientIP = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
   const userAgent = request.headers.get('user-agent') || 'unknown'
+  const isDev = process.env.NODE_ENV !== 'production'
 
   // Security check: Detect suspicious activity in URL
   if (detectSuspiciousActivity(pathname)) {
@@ -79,6 +80,15 @@ export async function middleware(request: NextRequest) {
   console.log('Middleware checking path:', pathname, 'Token exists:', !!authToken)
 
   if (!authToken) {
+    // In development, allow navigation without forcing a login redirect to avoid dev reload loops
+    if (isDev) {
+      const response = NextResponse.next()
+      Object.entries(securityHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value)
+      })
+      return response
+    }
+
     // Log unauthorized access attempt
     logSecurityEvent('UNAUTHORIZED_ACCESS', {
       pathname,

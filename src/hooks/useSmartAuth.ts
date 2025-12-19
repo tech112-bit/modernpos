@@ -2,15 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-
-interface User {
-  id: string
-  email: string
-  role: string
-}
+import { type AuthUser } from '@/types/auth'
+import { getCurrentUser, login as loginAction, logout as logoutAction } from '@/actions/auth'
 
 interface UseSmartAuthReturn {
-  user: User | null
+  user: AuthUser | null
   loading: boolean
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<boolean>
@@ -21,7 +17,7 @@ interface UseSmartAuthReturn {
 
 // Global auth state to prevent duplicate auth checks
 let globalAuthState: {
-  user: User | null
+  user: AuthUser | null
   loading: boolean
   lastCheck: number
 } = {
@@ -34,7 +30,7 @@ let globalAuthState: {
 const AUTH_CHECK_COOLDOWN = 5000
 
 function useSmartAuth(): UseSmartAuthReturn {
-  const [user, setUser] = useState<User | null>(globalAuthState.user)
+  const [user, setUser] = useState<AuthUser | null>(globalAuthState.user)
   const [loading, setLoading] = useState(globalAuthState.loading)
   const router = useRouter()
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -71,22 +67,16 @@ function useSmartAuth(): UseSmartAuthReturn {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/auth/me', {
-        signal: abortControllerRef.current.signal,
-        credentials: 'include'
-      })
+      const userInfo = await getCurrentUser(abortControllerRef.current.signal)
 
-      if (response.ok) {
-        const userData = await response.json()
-        const userInfo = userData.user
-        
+      if (userInfo) {
         // Cache user data in localStorage to prevent flash on reload
         try {
           localStorage.setItem('cached-user', JSON.stringify({
             user: userInfo,
             timestamp: Date.now()
           }))
-        } catch (error) {
+        } catch {
           // Ignore localStorage errors
         }
         
@@ -97,6 +87,12 @@ function useSmartAuth(): UseSmartAuthReturn {
         })
         setUser(userInfo)
       } else {
+        try {
+          localStorage.removeItem('cached-user')
+        } catch {
+          // Ignore localStorage errors
+        }
+
         updateGlobalAuthState({ 
           user: null, 
           loading: false, 
@@ -125,44 +121,32 @@ function useSmartAuth(): UseSmartAuthReturn {
   // Login function
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password })
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        
-        // Cache user data in localStorage to prevent flash on reload
-        try {
-          localStorage.setItem('cached-user', JSON.stringify({
-            user: data.user,
-            timestamp: Date.now()
-          }))
-        } catch (error) {
-          // Ignore localStorage errors
-        }
-        
-        // Update both local and global state
-        updateGlobalAuthState({ 
-          user: data.user, 
-          loading: false, 
-          lastCheck: Date.now() 
-        })
-        setUser(data.user)
-        
-        // Clear any cached data to ensure fresh data
-        if (typeof window !== 'undefined' && window.clearAllCaches) {
-          window.clearAllCaches()
-        }
-        
-        return true
-      } else {
-        const errorData = await response.json()
-        return false
+      const userInfo = await loginAction(email, password)
+
+      // Cache user data in localStorage to prevent flash on reload
+      try {
+        localStorage.setItem('cached-user', JSON.stringify({
+          user: userInfo,
+          timestamp: Date.now()
+        }))
+      } catch {
+        // Ignore localStorage errors
       }
+
+      // Update both local and global state
+      updateGlobalAuthState({ 
+        user: userInfo, 
+        loading: false, 
+        lastCheck: Date.now() 
+      })
+      setUser(userInfo)
+
+      // Clear any cached data to ensure fresh data
+      if (typeof window !== 'undefined' && window.clearAllCaches) {
+        window.clearAllCaches()
+      }
+
+      return true
     } catch (error) {
       console.error('❌ Login error:', error)
       return false
@@ -172,16 +156,7 @@ function useSmartAuth(): UseSmartAuthReturn {
   // Logout function
   const logout = useCallback(async (): Promise<void> => {
     try {
-      const response = await fetch('/api/auth/logout', { 
-        method: 'POST',
-        credentials: 'include'
-      })
-      
-      if (response.ok) {
-        // Logout successful
-      } else {
-        console.error('❌ Logout failed:', response.status)
-      }
+      await logoutAction()
     } catch (error) {
       console.error('❌ Logout error:', error)
     } finally {
@@ -196,7 +171,7 @@ function useSmartAuth(): UseSmartAuthReturn {
       // Clear cached user data
       try {
         localStorage.removeItem('cached-user')
-      } catch (error) {
+      } catch {
         // Ignore localStorage errors
       }
       
@@ -242,7 +217,7 @@ function useSmartAuth(): UseSmartAuthReturn {
             return
           }
         }
-      } catch (error) {
+      } catch {
         // Clear invalid cached data
         localStorage.removeItem('cached-user')
       }

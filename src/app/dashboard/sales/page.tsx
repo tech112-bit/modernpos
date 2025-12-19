@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useNotifications } from '@/contexts/NotificationContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { formatRelativeTime } from '@/lib/utils'
 import { LoadingSpinner, Card } from '@/components/ui'
 import { useSmartDataFetching, useSearch } from '@/hooks'
+import { type Sale } from '@/types/sale'
+import { listSales } from '@/actions/sales'
 import { 
   PlusIcon, 
   MagnifyingGlassIcon,
@@ -17,38 +18,13 @@ import {
   UserIcon
 } from '@heroicons/react/24/outline'
 
-interface Sale {
-  id: string
-  total: number
-  payment_type: string
-  discount: number
-  created_at: string
-  users: {
-    email: string
-  }
-  customers?: {
-    name: string
-  }
-  sale_items: Array<{
-    quantity: number
-    price: number
-    products: {
-      name: string
-      sku: string
-    }
-  }>
-}
-
-interface SalesApiResponse {
-  sales: Sale[]
-}
-
 export default function SalesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
-  const { addNotification } = useNotifications()
   const { formatCurrency } = useCurrency()
+  const [channelFilter, setChannelFilter] = useState<'all' | Sale['sale_channel']>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | Sale['payment_status']>('all')
 
   // Use smart data fetching with caching
   const { 
@@ -58,11 +34,11 @@ export default function SalesPage() {
     refetch: fetchSales,
     clearCache
   } = useSmartDataFetching<Sale[]>({
-    endpoint: '/api/sales',
+    cacheKey: 'sales:list',
+    fetcher: ({ signal }) => listSales(signal),
     autoFetch: !!user && !authLoading,
     cacheDuration: 60000, // Keep cache short so totals refresh quickly
-    debounceDelay: 250, // Faster response on refetch
-    transform: (data: unknown) => (data as SalesApiResponse).sales || []
+    debounceDelay: 250 // Faster response on refetch
   })
 
   const sales = salesData || []
@@ -79,11 +55,17 @@ export default function SalesPage() {
   })
 
   // Custom search for sales (customer name and user email)
-  const searchFilteredSales = filteredSales.filter(sale =>
-    sale.customers?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sale.users.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sale.id.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const searchFilteredSales = filteredSales.filter(sale => {
+    const matchesSearch =
+      sale.customers?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sale.users.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sale.id.toLowerCase().includes(searchTerm.toLowerCase())
+
+    const matchesChannel = channelFilter === 'all' || sale.sale_channel === channelFilter
+    const matchesStatus = statusFilter === 'all' || sale.payment_status === statusFilter
+
+    return matchesSearch && matchesChannel && matchesStatus
+  })
 
   // Smart data fetching already handles caching and prevents excessive refreshes
   // No need for visibility change handler as the hook manages this automatically
@@ -91,6 +73,40 @@ export default function SalesPage() {
   const totalRevenue = sales.reduce((sum, sale) => sum + Number(sale.total), 0)
   const totalSales = sales.length
   const averageOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0
+
+  const renderPaymentStatusBadge = (status: Sale['payment_status']) => {
+    const styles: Record<Sale['payment_status'], string> = {
+      PAID: 'bg-green-100 text-green-800',
+      NOT_PAID: 'bg-red-100 text-red-800',
+      CASH_ON_DELIVERY: 'bg-amber-100 text-amber-800'
+    }
+    const labels: Record<Sale['payment_status'], string> = {
+      PAID: 'Paid',
+      NOT_PAID: 'Not Paid',
+      CASH_ON_DELIVERY: 'Cash on Delivery'
+    }
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${styles[status]}`}>
+        {labels[status]}
+      </span>
+    )
+  }
+
+  const renderSaleChannelBadge = (channel: Sale['sale_channel']) => {
+    const styles: Record<Sale['sale_channel'], string> = {
+      ONLINE: 'bg-blue-100 text-blue-800',
+      IN_STORE: 'bg-gray-100 text-gray-800'
+    }
+    const labels: Record<Sale['sale_channel'], string> = {
+      ONLINE: 'Online',
+      IN_STORE: 'In-store'
+    }
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${styles[channel]}`}>
+        {labels[channel]}
+      </span>
+    )
+  }
 
   // Force-refresh when redirected from new sale creation
   useEffect(() => {
@@ -134,17 +150,40 @@ export default function SalesPage() {
 
       {/* Search */}
       <Card>
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-2.5 xs:pl-3 flex items-center pointer-events-none">
-            <MagnifyingGlassIcon className="h-4 w-4 xs:h-5 xs:w-5 text-gray-400" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="relative sm:col-span-2">
+            <div className="absolute inset-y-0 left-0 pl-2.5 xs:pl-3 flex items-center pointer-events-none">
+              <MagnifyingGlassIcon className="h-4 w-4 xs:h-5 xs:w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search sales by customer, user, or sale ID..."
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="block w-full pl-8 xs:pl-10 pr-2.5 xs:pr-3 py-2 xs:py-2.5 sm:py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm xs:text-sm sm:text-base"
+            />
           </div>
-          <input
-            type="text"
-            placeholder="Search sales by customer, user, or sale ID..."
-            value={searchTerm}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="block w-full pl-8 xs:pl-10 pr-2.5 xs:pr-3 py-2 xs:py-2.5 sm:py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm xs:text-sm sm:text-base"
-          />
+          <div className="grid grid-cols-2 gap-2">
+            <select
+              value={channelFilter}
+              onChange={(e) => setChannelFilter(e.target.value as typeof channelFilter)}
+              className="block w-full py-2 xs:py-2.5 sm:py-3 px-2.5 xs:px-3 border border-gray-300 rounded-md text-xs xs:text-sm sm:text-base bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Channels</option>
+              <option value="IN_STORE">In-store</option>
+              <option value="ONLINE">Online</option>
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+              className="block w-full py-2 xs:py-2.5 sm:py-3 px-2.5 xs:px-3 border border-gray-300 rounded-md text-xs xs:text-sm sm:text-base bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Status</option>
+              <option value="PAID">Paid</option>
+              <option value="NOT_PAID">Not Paid</option>
+              <option value="CASH_ON_DELIVERY">Cash on Delivery</option>
+            </select>
+          </div>
         </div>
       </Card>
 
@@ -252,8 +291,12 @@ export default function SalesPage() {
                         <p className="text-sm xs:text-base font-bold text-gray-900">
                           {formatCurrency(Number(sale.total))}
                         </p>
-                        <p className="text-xs text-gray-500">
-                          {sale.payment_type}
+                        <p className="text-xs text-gray-500 flex items-center space-x-2">
+                          <span>{sale.payment_type}</span>
+                          <span aria-hidden="true">•</span>
+                          {renderSaleChannelBadge(sale.sale_channel)}
+                          <span aria-hidden="true"></span>
+                          {renderPaymentStatusBadge(sale.payment_status)}
                         </p>
                       </div>
                     </div>
@@ -271,7 +314,7 @@ export default function SalesPage() {
                         <span className="text-gray-600">Date:</span>
                         <span className="text-gray-900">{formatRelativeTime(new Date(sale.created_at))}</span>
                       </div>
-                      {sale.discount > 0 && (
+                      {Number(sale.discount) > 0 && (
                         <div className="flex justify-between text-xs xs:text-sm">
                           <span className="text-gray-600">Discount:</span>
                           <span className="text-green-600">{formatCurrency(Number(sale.discount))}</span>
@@ -310,15 +353,19 @@ export default function SalesPage() {
                     
                     <div className="flex items-center space-x-6 ml-6">
                       <div className="text-right">
-                        <p className="text-sm font-medium text-gray-900">
-                          {formatCurrency(Number(sale.total))}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {sale.payment_type}
-                        </p>
+                         <p className="text-sm font-medium text-gray-900">
+                           {formatCurrency(Number(sale.total))}
+                         </p>
+                         <div className="text-xs text-gray-500 flex items-center space-x-2">
+                           <span>{sale.payment_type}</span>
+                           <span aria-hidden="true">•</span>
+                           {renderSaleChannelBadge(sale.sale_channel)}
+                           <span aria-hidden="true"></span>
+                           {renderPaymentStatusBadge(sale.payment_status)}
+                         </div>
                       </div>
                       
-                      {sale.discount > 0 && (
+                      {Number(sale.discount) > 0 && (
                         <div className="text-right">
                           <p className="text-sm font-medium text-green-600">
                             -{formatCurrency(Number(sale.discount))}

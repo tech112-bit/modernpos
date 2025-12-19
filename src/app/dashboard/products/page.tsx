@@ -10,6 +10,9 @@ import { useAuth } from '@/contexts/AuthContext'
 import { LoadingSpinner, Card } from '@/components/ui'
 import { useSmartDataFetching, useDeleteConfirmation, useSearch } from '@/hooks'
 import ProductImport from '@/components/ProductImport'
+import { type ProductListItem, type ProductsApiResponse } from '@/types/product'
+import { deleteProduct, listProducts } from '@/actions/products'
+import { getErrorMessage } from '@/actions/http'
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -19,22 +22,6 @@ import {
   TagIcon,
   CloudArrowUpIcon
 } from '@heroicons/react/24/outline'
-
-interface Product {
-  id: string
-  name: string
-  sku: string
-  price: number | string // Can be Decimal from database (string) or number
-  cost: number | string // Can be Decimal from database (string) or number
-  stock: number
-  categories: {
-    name: string
-  }
-}
-
-interface ProductsApiResponse {
-  products: Product[]
-}
 
 export default function ProductsPage() {
   const router = useRouter()
@@ -54,8 +41,9 @@ export default function ProductsPage() {
     error, 
     refetch: fetchProducts,
     clearCache
-  } = useSmartDataFetching<Product[]>({
-    endpoint: '/api/products',
+  } = useSmartDataFetching<ProductListItem[]>({
+    cacheKey: 'products:list',
+    fetcher: ({ signal }) => listProducts(signal),
     autoFetch: !!user,
     cacheDuration: 60000, // Short cache to keep inventory fresh
     debounceDelay: 250, // Quicker refetch on demand
@@ -75,7 +63,7 @@ export default function ProductsPage() {
     searchTerm, 
     filteredData: searchFilteredProducts, 
     handleSearchChange 
-  } = useSearch<Product>({
+  } = useSearch<ProductListItem>({
     data: products,
     searchFields: ['name', 'sku']
   })
@@ -89,25 +77,17 @@ export default function ProductsPage() {
       'this product',
       async (id: string) => {
         try {
-          const response = await fetch(`/api/products/${id}`, {
-            method: 'DELETE'
+          await deleteProduct(id)
+          // Refresh the products list
+          fetchProducts()
+          addNotification({
+            type: 'success',
+            title: 'Product Deleted',
+            message: 'Product has been deleted successfully.',
+            duration: 4000
           })
-
-          if (response.ok) {
-            // Refresh the products list
-            fetchProducts()
-            addNotification({
-              type: 'success',
-              title: 'Product Deleted',
-              message: 'Product has been deleted successfully.',
-              duration: 4000
-            })
-          } else {
-            const errorData = await response.json()
-            throw new Error(errorData.error || 'Failed to delete product')
-          }
         } catch (error) {
-          throw error
+          throw new Error(getErrorMessage(error, 'Failed to delete product'))
         }
       },
       {

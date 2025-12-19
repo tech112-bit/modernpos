@@ -1,30 +1,19 @@
 'use client'
 
 import { useAuth } from '@/contexts/AuthContext'
-import { useNotifications } from '@/contexts/NotificationContext'
 import { formatRelativeTime } from '@/lib/utils'
 import { LoadingSpinner, Card } from '@/components/ui'
 import { useSmartDataFetching } from '@/hooks'
+import { listUsers } from '@/actions/users'
 import { 
   UserIcon,
   ShieldCheckIcon
 } from '@heroicons/react/24/outline'
 import AdminRouteGuard from '@/components/AdminRouteGuard'
-
-interface User {
-  id: string
-  email: string
-  role: string
-  createdAt: string
-}
-
-interface UsersApiResponse {
-  users: User[]
-}
+import { type User, type UsersApiResponse } from '@/types/user'
 
 export default function UsersPage() {
   const { user: currentUser } = useAuth()
-  const { addNotification } = useNotifications()
 
   // Use smart data fetching with caching
   const { 
@@ -32,7 +21,8 @@ export default function UsersPage() {
     loading, 
     error 
   } = useSmartDataFetching<User[]>({
-    endpoint: '/api/users',
+    cacheKey: 'users:list',
+    fetcher: ({ signal }) => listUsers(signal),
     autoFetch: currentUser?.role === 'ADMIN',
     cacheDuration: 300000, // Cache for 5 minutes
     debounceDelay: 500, // Debounce API calls

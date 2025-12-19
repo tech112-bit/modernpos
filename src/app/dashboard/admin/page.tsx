@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { formatRelativeTime } from '@/lib/utils'
+import { createUser, listUsers } from '@/actions/users'
+import { getErrorMessage } from '@/actions/http'
 import { 
   UsersIcon,
   UserPlusIcon,
@@ -12,14 +14,7 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
 import AdminRouteGuard from '@/components/AdminRouteGuard'
-
-interface User {
-  id: string
-  email: string
-  role: string
-  status: string
-  createdAt: string
-}
+import { USER_ROLES, USER_STATUSES, type User, type UserRole, type UserStatus } from '@/types/user'
 
 export default function AdminDashboardPage() {
   const { user: currentUser } = useAuth()
@@ -27,91 +22,70 @@ export default function AdminDashboardPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [createForm, setCreateForm] = useState({
+  const [createForm, setCreateForm] = useState<{
+    email: string
+    password: string
+    role: UserRole
+    status: UserStatus
+  }>({
     email: '',
     password: '',
     role: 'USER',
     status: 'ACTIVE'
   })
 
-  useEffect(() => {
-    if (currentUser?.role === 'ADMIN') {
-      fetchUsers()
-    }
-  }, [currentUser])
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/users')
-      if (response.ok) {
-        const data = await response.json()
-        setUsers(data.users)
-      } else {
-        addNotification({
-          type: 'error',
-          title: 'Failed to fetch users',
-          message: 'Unable to load user list',
-          duration: 5000
-        })
-      }
+      const data = await listUsers()
+      setUsers(data.users)
     } catch (error) {
       console.error('Error fetching users:', error)
       addNotification({
         type: 'error',
         title: 'Network Error',
-        message: 'Failed to connect to server',
+        message: getErrorMessage(error, 'Failed to connect to server'),
         duration: 5000
       })
     } finally {
       setLoading(false)
     }
-  }
+  }, [addNotification])
+
+  useEffect(() => {
+    if (currentUser?.role === 'ADMIN') {
+      fetchUsers()
+    }
+  }, [currentUser, fetchUsers])
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
     
     try {
-      const response = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(createForm)
+      const created = await createUser(createForm)
+      addNotification({
+        type: 'success',
+        title: 'User Created',
+        message: `User ${created.email} created successfully`,
+        duration: 5000
       })
-
-      if (response.ok) {
-        const data = await response.json()
-        addNotification({
-          type: 'success',
-          title: 'User Created',
-          message: `User ${data.user.email} created successfully`,
-          duration: 5000
-        })
-        setCreateForm({ email: '', password: '', role: 'USER', status: 'ACTIVE' })
-        setShowCreateForm(false)
-        fetchUsers()
-      } else {
-        const errorData = await response.json()
-        addNotification({
-          type: 'error',
-          title: 'Creation Failed',
-          message: errorData.error || 'Failed to create user',
-          duration: 5000
-        })
-      }
+      setCreateForm({ email: '', password: '', role: 'USER', status: 'ACTIVE' })
+      setShowCreateForm(false)
+      fetchUsers()
     } catch (error) {
       console.error('Error creating user:', error)
       addNotification({
         type: 'error',
         title: 'Network Error',
-        message: 'Failed to create user',
+        message: getErrorMessage(error, 'Failed to create user'),
         duration: 5000
       })
     }
   }
 
   const generateUserCredentials = () => {
-    const roles = ['USER', 'MANAGER']
-    const statuses = ['ACTIVE', 'INACTIVE']
+    const roles: UserRole[] = ['USER', 'MANAGER']
+    const statuses: UserStatus[] = ['ACTIVE', 'INACTIVE']
     
     // Generate random email
     const domains = ['shop.com', 'store.com', 'business.com', 'company.com']
@@ -298,24 +272,28 @@ export default function AdminDashboardPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                   <select
                     value={createForm.role}
-                    onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
+                    onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as UserRole })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="USER">User</option>
-                    <option value="MANAGER">Manager</option>
-                    <option value="ADMIN">Admin</option>
+                    {USER_ROLES.map((role) => (
+                      <option key={role} value={role}>
+                        {role === 'ADMIN' ? 'Admin' : role === 'MANAGER' ? 'Manager' : 'User'}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                   <select
                     value={createForm.status}
-                    onChange={(e) => setCreateForm({ ...createForm, status: e.target.value })}
+                    onChange={(e) => setCreateForm({ ...createForm, status: e.target.value as UserStatus })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="ACTIVE">Active</option>
-                    <option value="INACTIVE">Inactive</option>
-                    <option value="SUSPENDED">Suspended</option>
+                    {USER_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {status === 'ACTIVE' ? 'Active' : status === 'INACTIVE' ? 'Inactive' : 'Suspended'}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

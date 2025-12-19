@@ -21,8 +21,6 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const searchTerm = `%${query}%`
-
     // Parallel database queries for better performance
     const [products, customers, sales] = await Promise.all([
       // Search products

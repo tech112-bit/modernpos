@@ -2,31 +2,21 @@
 
 import { useMemo } from 'react'
 import { useSettings } from '@/contexts/SettingsContext'
-import { useCurrency } from '@/contexts/CurrencyContext'
 import { useSmartDataFetching } from '@/hooks'
+import { type ProductListItem, type ProductsApiResponse } from '@/types/product'
+import { listProducts } from '@/actions/products'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
-
-interface LowStockProduct {
-  id: string
-  name: string
-  stock: number
-  price: number | string
-}
-
-interface ProductsApiResponse {
-  products: LowStockProduct[]
-}
 
 export default function LowStockAlert() {
   const { settings } = useSettings()
-  const { formatCurrency } = useCurrency()
 
   // Use smart data fetching with caching
   const { 
     data: productsData, 
     loading 
   } = useSmartDataFetching<ProductsApiResponse>({
-    endpoint: '/api/products',
+    cacheKey: 'products:list',
+    fetcher: ({ signal }) => listProducts(signal),
     autoFetch: true,
     cacheDuration: 300000, // Cache for 5 minutes
     debounceDelay: 1000, // Debounce API calls
@@ -37,7 +27,7 @@ export default function LowStockAlert() {
   const lowStockProducts = useMemo(() => {
     if (!productsData?.products) return []
     
-    return productsData.products.filter(product => 
+    return productsData.products.filter((product: ProductListItem) => 
       product.stock <= settings.lowStockThreshold
     )
   }, [productsData?.products, settings.lowStockThreshold])

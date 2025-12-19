@@ -8,8 +8,14 @@ interface CacheEntry<T> {
   expiresAt: number
 }
 
+type SmartFetcher = (context: { signal: AbortSignal }) => Promise<unknown>
+
+const EMPTY_DEPS: unknown[] = []
+
 interface UseSmartDataFetchingOptions<T> {
-  endpoint: string
+  endpoint?: string
+  fetcher?: SmartFetcher
+  cacheKey?: string
   autoFetch?: boolean
   cacheDuration?: number // in milliseconds
   debounceDelay?: number // in milliseconds
@@ -34,13 +40,15 @@ const globalCache = new Map<string, CacheEntry<unknown>>()
 
 function useSmartDataFetching<T = unknown>({
   endpoint,
+  fetcher,
+  cacheKey: cacheKeyOverride,
   autoFetch = true,
   cacheDuration = 30000, // 30 seconds default
   debounceDelay = 300, // 300ms default
   onSuccess,
   onError,
   transform,
-  dependencies = [],
+  dependencies = EMPTY_DEPS,
   skipCache = false
 }: UseSmartDataFetchingOptions<T>): UseSmartDataFetchingReturn<T> {
   const [data, setData] = useState<T | null>(null)
@@ -51,7 +59,38 @@ function useSmartDataFetching<T = unknown>({
   const abortControllerRef = useRef<AbortController | null>(null)
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const hasFetchedRef = useRef(false)
-  const cacheKey = useMemo(() => `${endpoint}`, [endpoint])
+  const loadingRef = useRef(false)
+  const fetcherRef = useRef<SmartFetcher | undefined>(fetcher)
+  const transformRef = useRef<UseSmartDataFetchingOptions<T>['transform']>(transform)
+  const onSuccessRef = useRef<UseSmartDataFetchingOptions<T>['onSuccess']>(onSuccess)
+  const onErrorRef = useRef<UseSmartDataFetchingOptions<T>['onError']>(onError)
+  const cacheKey = useMemo(() => {
+    const resolved = cacheKeyOverride ?? endpoint
+    if (!resolved) {
+      throw new Error('useSmartDataFetching requires either "endpoint" or "cacheKey" (when using "fetcher").')
+    }
+    return resolved
+  }, [cacheKeyOverride, endpoint])
+
+  useEffect(() => {
+    loadingRef.current = loading
+  }, [loading])
+
+  useEffect(() => {
+    fetcherRef.current = fetcher
+  }, [fetcher])
+
+  useEffect(() => {
+    transformRef.current = transform
+  }, [transform])
+
+  useEffect(() => {
+    onSuccessRef.current = onSuccess
+  }, [onSuccess])
+
+  useEffect(() => {
+    onErrorRef.current = onError
+  }, [onError])
 
   // Check if data is still fresh in cache
   const isCacheValid = useCallback((entry: CacheEntry<unknown>): boolean => {
@@ -65,13 +104,14 @@ function useSmartDataFetching<T = unknown>({
     const cached = globalCache.get(cacheKey)
     if (cached && isCacheValid(cached)) {
       // Apply transform to cached data as well to ensure consistency
-      if (transform) {
-        return transform(cached.data) as T
+      const currentTransform = transformRef.current
+      if (currentTransform) {
+        return currentTransform(cached.data) as T
       }
       return cached.data as T
     }
     return null
-  }, [cacheKey, skipCache, isCacheValid, transform])
+  }, [cacheKey, skipCache, isCacheValid])
 
   // Set cached data
   const setCachedData = useCallback((newData: unknown) => {
@@ -101,7 +141,11 @@ function useSmartDataFetching<T = unknown>({
     }
 
     // Prevent duplicate requests
-    if (loading) return
+    if (loadingRef.current) return
+
+    if (!endpoint && !fetcherRef.current) {
+      throw new Error('useSmartDataFetching requires either "endpoint" or "fetcher".')
+    }
 
     // Abort previous request if still pending
     if (abortControllerRef.current) {
@@ -109,39 +153,54 @@ function useSmartDataFetching<T = unknown>({
     }
 
     // Create new abort controller
-    abortControllerRef.current = new AbortController()
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    const { signal } = controller
+    const resolvedEndpoint = endpoint
     
+    loadingRef.current = true
     setLoading(true)
     setError(null)
 
     try {
-      const response = await fetch(endpoint, {
-        signal: abortControllerRef.current.signal,
-        credentials: 'include'
-      })
-
-      if (!response.ok) {
-        let errorMessage = `HTTP error! status: ${response.status}`
-        try {
-          const errorBody = await response.clone().json()
-          if (errorBody?.error) {
-            errorMessage = `${response.status} ${errorBody.error}`
-          }
-        } catch {
-          try {
-            const errorText = await response.clone().text()
-            if (errorText) {
-              errorMessage = `${response.status} ${errorText}`
+      const rawData = fetcherRef.current
+        ? await fetcherRef.current({ signal })
+        : await (async () => {
+            if (!resolvedEndpoint) {
+              throw new Error('useSmartDataFetching requires either "endpoint" or "fetcher".')
             }
-          } catch {
-            // ignore parse errors, keep default message
-          }
-        }
-        throw new Error(errorMessage)
-      }
 
-      const rawData = await response.json()
-      const processedData = transform ? transform(rawData) : rawData
+            const response = await fetch(resolvedEndpoint, {
+              signal,
+              credentials: 'include'
+            })
+
+            if (!response.ok) {
+              let errorMessage = `HTTP error! status: ${response.status}`
+              try {
+                const errorBody = await response.clone().json()
+                if (errorBody?.error) {
+                  errorMessage = `${response.status} ${errorBody.error}`
+                } else if (errorBody?.message) {
+                  errorMessage = `${response.status} ${errorBody.message}`
+                }
+              } catch {
+                try {
+                  const errorText = await response.clone().text()
+                  if (errorText) {
+                    errorMessage = `${response.status} ${errorText}`
+                  }
+                } catch {
+                  // ignore parse errors, keep default message
+                }
+              }
+              throw new Error(errorMessage)
+            }
+
+            return response.json()
+          })()
+      const currentTransform = transformRef.current
+      const processedData = currentTransform ? currentTransform(rawData) : rawData
 
       setData(processedData)
       // Store raw data in cache so transform can be applied consistently
@@ -149,7 +208,7 @@ function useSmartDataFetching<T = unknown>({
       setLastFetched(Date.now())
       setError(null)
 
-      onSuccess?.(processedData)
+      onSuccessRef.current?.(processedData as T)
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         // Request was aborted, don't set error
@@ -158,12 +217,13 @@ function useSmartDataFetching<T = unknown>({
       
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       setError(errorMessage)
-      onError?.(errorMessage)
+      onErrorRef.current?.(errorMessage)
     } finally {
+      loadingRef.current = false
       setLoading(false)
       abortControllerRef.current = null
     }
-  }, [endpoint, loading, getCachedData, setCachedData, onSuccess, onError, transform, skipCache])
+  }, [endpoint, getCachedData, setCachedData])
 
   // Debounced fetch function
   const debouncedFetch = useCallback(() => {
@@ -175,6 +235,11 @@ function useSmartDataFetching<T = unknown>({
       fetchData()
     }, debounceDelay)
   }, [fetchData, debounceDelay])
+
+  // Reset fetch guard when the cache key changes
+  useEffect(() => {
+    hasFetchedRef.current = false
+  }, [cacheKey])
 
   // Auto-fetch when dependencies change
   useEffect(() => {
@@ -188,12 +253,7 @@ function useSmartDataFetching<T = unknown>({
         clearTimeout(debounceTimeoutRef.current)
       }
     }
-  }, [autoFetch, debouncedFetch, ...dependencies])
-
-  // Reset fetch guard when the endpoint changes
-  useEffect(() => {
-    hasFetchedRef.current = false
-  }, [cacheKey])
+  }, [autoFetch, debouncedFetch, cacheKey, ...dependencies])
 
   // Cleanup on unmount
   useEffect(() => {

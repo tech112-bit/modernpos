@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { ProductionErrorHandler } from '@/lib/error-handler'
 import { extractTokenFromCookies } from '@/lib/secure-cookies'
+import { generateBarcodeEan13, generateSku } from '@/lib/product-identifiers'
 
 const numeric = (label: string) =>
   z.preprocess((val) => {
@@ -27,7 +28,7 @@ const integer = (label: string) =>
 const createProductSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
   description: z.string().optional(),
-  sku: z.string().min(1, 'SKU is required'),
+  sku: z.string().min(1, 'SKU is required').optional(),
   barcode: z.string().optional(),
   price: numeric('Price'),
   cost: numeric('Cost'),
@@ -173,15 +174,30 @@ export async function POST(request: NextRequest) {
     
     // Validate input
     const validatedData = createProductSchema.parse(body)
+
+    // Generate identifiers if not provided
+    const barcode = validatedData.barcode?.trim() || generateBarcodeEan13()
+
+    let sku = validatedData.sku?.trim() || generateSku(validatedData.name)
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const existingProduct = await prisma.products.findFirst({
+        where: {
+          sku,
+          user_id: userId
+        }
+      })
+      if (!existingProduct) break
+      sku = generateSku(validatedData.name)
+    }
     
-    // Check if SKU already exists for this user
+    // Final SKU uniqueness check (in case of repeated collisions)
     const existingProduct = await prisma.products.findFirst({
-      where: { 
-        sku: validatedData.sku,
+      where: {
+        sku,
         user_id: userId
       }
     })
-    
+
     if (existingProduct) {
       return NextResponse.json(
         { error: 'SKU already exists' },
@@ -213,8 +229,8 @@ export async function POST(request: NextRequest) {
         id: productId,
         name: validatedData.name,
         description: validatedData.description || '',
-        sku: validatedData.sku,
-        barcode: validatedData.barcode || '',
+        sku,
+        barcode,
         price: new Prisma.Decimal(validatedData.price),
         cost: new Prisma.Decimal(validatedData.cost),
         stock: validatedData.stock,

@@ -74,12 +74,12 @@ export const useDataFetching = <T = unknown>({
     }
   }, [autoFetch, user, fetchData])
 
-  // Handle dependencies separately to avoid spread operator in dependency array
+  // Handle dependencies separately without spreading
   useEffect(() => {
     if (autoFetch && user && dependencies.length > 0) {
       fetchData()
     }
-  }, [autoFetch, user, fetchData, ...dependencies])
+  }, [autoFetch, user, fetchData, dependencies])
 
   return {
     data,

@@ -1,14 +1,14 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
-
-interface MfaState {
-  isEnabled: boolean
-  isVerified: boolean
-  backupCodes: string[]
-  qrCodeUrl?: string
-  secret?: string
-}
+import {
+  disableMfa as disableMfaAction,
+  enableMfa as enableMfaAction,
+  generateBackupCodes as generateBackupCodesAction,
+  getMfaStatus,
+  verifyMfa as verifyMfaAction
+} from '@/actions/mfa'
+import { type MfaState } from '@/types/mfa'
 
 interface MfaContextType {
   mfaState: MfaState
@@ -30,11 +30,8 @@ export function MfaProvider({ children }: { children: React.ReactNode }) {
 
   const refreshMfaState = async () => {
     try {
-      const response = await fetch('/api/auth/mfa/status')
-      if (response.ok) {
-        const data = await response.json()
-        setMfaState(data)
-      }
+      const data = await getMfaStatus()
+      setMfaState(data)
     } catch (error) {
       console.error('Failed to fetch MFA status:', error)
     }
@@ -42,16 +39,13 @@ export function MfaProvider({ children }: { children: React.ReactNode }) {
 
   const enableMfa = async () => {
     try {
-      const response = await fetch('/api/auth/mfa/enable', { method: 'POST' })
-      if (response.ok) {
-        const data = await response.json()
-        setMfaState(prev => ({
-          ...prev,
-          isEnabled: true,
-          qrCodeUrl: data.qrCodeUrl,
-          secret: data.secret
-        }))
-      }
+      const data = await enableMfaAction()
+      setMfaState(prev => ({
+        ...prev,
+        isEnabled: true,
+        qrCodeUrl: data.qrCodeUrl,
+        secret: data.secret
+      }))
     } catch (error) {
       console.error('Failed to enable MFA:', error)
       throw error
@@ -60,16 +54,14 @@ export function MfaProvider({ children }: { children: React.ReactNode }) {
 
   const disableMfa = async () => {
     try {
-      const response = await fetch('/api/auth/mfa/disable', { method: 'POST' })
-      if (response.ok) {
-        setMfaState(prev => ({
-          ...prev,
-          isEnabled: false,
-          isVerified: false,
-          qrCodeUrl: undefined,
-          secret: undefined
-        }))
-      }
+      await disableMfaAction()
+      setMfaState(prev => ({
+        ...prev,
+        isEnabled: false,
+        isVerified: false,
+        qrCodeUrl: undefined,
+        secret: undefined
+      }))
     } catch (error) {
       console.error('Failed to disable MFA:', error)
       throw error
@@ -78,17 +70,9 @@ export function MfaProvider({ children }: { children: React.ReactNode }) {
 
   const verifyMfa = async (code: string): Promise<boolean> => {
     try {
-      const response = await fetch('/api/auth/mfa/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code })
-      })
-      
-      if (response.ok) {
-        setMfaState(prev => ({ ...prev, isVerified: true }))
-        return true
-      }
-      return false
+      await verifyMfaAction(code)
+      setMfaState(prev => ({ ...prev, isVerified: true }))
+      return true
     } catch (error) {
       console.error('Failed to verify MFA:', error)
       return false
@@ -97,13 +81,9 @@ export function MfaProvider({ children }: { children: React.ReactNode }) {
 
   const generateBackupCodes = async (): Promise<string[]> => {
     try {
-      const response = await fetch('/api/auth/mfa/backup-codes', { method: 'POST' })
-      if (response.ok) {
-        const data = await response.json()
-        setMfaState(prev => ({ ...prev, backupCodes: data.backupCodes }))
-        return data.backupCodes
-      }
-      return []
+      const data = await generateBackupCodesAction()
+      setMfaState(prev => ({ ...prev, backupCodes: data.backupCodes }))
+      return data.backupCodes
     } catch (error) {
       console.error('Failed to generate backup codes:', error)
       return []

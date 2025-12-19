@@ -5,6 +5,9 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
+import { type Sale } from '@/types/sale'
+import { deleteSale, getSale } from '@/actions/sales'
+import { getErrorMessage } from '@/actions/http'
 
 import { formatRelativeTime } from '@/lib/utils'
 import {
@@ -15,31 +18,6 @@ import {
 
   CurrencyDollarIcon
 } from '@heroicons/react/24/outline'
-
-interface Sale {
-  id: string
-  total: number | string | { toString(): string } // Prisma Decimal type
-  payment_type: string
-  discount: number | string | { toString(): string } // Prisma Decimal type
-  created_at: string
-  users: {
-    email: string
-    name: string
-  }
-  customers?: {
-    name: string
-    phone: string
-    email: string
-  }
-  sale_items: Array<{
-    quantity: number
-    price: number | string | { toString(): string } // Prisma Decimal type
-    products: {
-      name: string
-      sku: string
-    }
-  }>
-}
 
 export default function SaleDetailPage() {
   const router = useRouter()
@@ -60,16 +38,11 @@ export default function SaleDetailPage() {
   const fetchSale = async (id: string) => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/sales/${id}`)
-      if (response.ok) {
-        const data = await response.json()
-        setSale(data)
-      } else {
-        setError('Sale not found')
-      }
+      const data = await getSale(id)
+      setSale(data)
     } catch (error) {
       console.error('Error fetching sale:', error)
-      setError('Failed to fetch sale')
+      setError(getErrorMessage(error, 'Failed to fetch sale'))
     } finally {
       setLoading(false)
     }
@@ -103,18 +76,10 @@ export default function SaleDetailPage() {
 
     setDeleting(true)
     try {
-      const response = await fetch(`/api/sales/${sale.id}`, {
-        method: 'DELETE'
-      })
-
-      if (response.ok) {
-        router.push('/dashboard/sales')
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Failed to delete sale')
-      }
-    } catch {
-      setError('Failed to delete sale. Please try again.')
+      await deleteSale(sale.id)
+      router.push('/dashboard/sales')
+    } catch (error) {
+      setError(getErrorMessage(error, 'Failed to delete sale. Please try again.'))
     } finally {
       setDeleting(false)
     }
@@ -200,6 +165,22 @@ export default function SaleDetailPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-500">Payment Type</label>
                 <p className="mt-1 text-sm text-gray-900 capitalize">{sale.payment_type.toLowerCase()}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500">Order Type</label>
+                <p className="mt-1 text-sm text-gray-900">
+                  {sale.sale_channel === 'ONLINE' ? 'Online' : 'In-store'}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500">Payment Status</label>
+                <p className="mt-1">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-800">
+                    {sale.payment_status === 'PAID' && 'Paid'}
+                    {sale.payment_status === 'NOT_PAID' && 'Not Paid'}
+                    {sale.payment_status === 'CASH_ON_DELIVERY' && 'Cash on Delivery'}
+                  </span>
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500">Processed By</label>

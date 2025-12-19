@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { useAuth } from '@/contexts/AuthContext'
 import CategoryImport from '@/components/CategoryImport'
+import { deleteCategory, listCategories } from '@/actions/categories'
 import { 
   LoadingSpinner, 
   MobileOptimizedCard, 
@@ -15,21 +16,13 @@ import {
 } from '@/components/ui'
 import { useSmartDataFetching, useDeleteConfirmation, useSearch } from '@/hooks'
 import { useMobileLayout } from '@/hooks/useMobileLayout'
-import {
+import { 
   PlusIcon,
   PencilIcon,
   TrashIcon,
   TagIcon
 } from '@heroicons/react/24/outline'
-
-interface Category {
-  id: string
-  name: string
-  createdAt: string
-  _count?: {
-    products: number
-  }
-}
+import { type Category } from '@/types/category'
 
 export default function CategoriesPage() {
   const { addNotification } = useNotifications()
@@ -46,7 +39,8 @@ export default function CategoriesPage() {
     error, 
     refetch: fetchCategories 
   } = useSmartDataFetching<Category[]>({
-    endpoint: '/api/categories',
+    cacheKey: 'categories:list',
+    fetcher: ({ signal }) => listCategories(signal),
     autoFetch: !!user,
     cacheDuration: 300000, // Cache for 5 minutes
     debounceDelay: 500 // Debounce API calls
@@ -75,24 +69,16 @@ export default function CategoriesPage() {
         setDeleteLoading(id)
         
         try {
-          const response = await fetch(`/api/categories/${id}`, {
-            method: 'DELETE'
+          await deleteCategory(id)
+          // Update the data in the hook
+          fetchCategories()
+          
+          addNotification({
+            type: 'success',
+            title: 'Category Deleted',
+            message: 'Category has been deleted successfully.',
+            duration: 4000
           })
-
-          if (response.ok) {
-            // Update the data in the hook
-            fetchCategories()
-            
-            addNotification({
-              type: 'success',
-              title: 'Category Deleted',
-              message: 'Category has been deleted successfully.',
-              duration: 4000
-            })
-          } else {
-            const errorData = await response.json()
-            throw new Error(errorData.error || 'Failed to delete category')
-          }
         } finally {
           setDeleteLoading(null)
         }

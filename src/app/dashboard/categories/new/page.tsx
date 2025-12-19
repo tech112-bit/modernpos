@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useNotifications } from '@/contexts/NotificationContext'
+import { createCategory } from '@/actions/categories'
+import { getErrorMessage } from '@/actions/http'
 import {
   ArrowLeftIcon,
   CheckIcon,
@@ -25,39 +27,23 @@ export default function NewCategoryPage() {
     setError('')
 
     try {
-      const response = await fetch('/api/categories', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ name: name.trim() })
+      await createCategory(name.trim())
+      addNotification({
+        type: 'success',
+        title: 'Category Created',
+        message: 'New category has been created successfully.',
+        duration: 4000
       })
-
-      if (response.ok) {
-        addNotification({
-          type: 'success',
-          title: 'Category Created',
-          message: 'New category has been created successfully.',
-          duration: 4000
-        })
-        // Redirect back to categories list
-        router.push('/dashboard/categories')
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Failed to create category')
-        addNotification({
-          type: 'error',
-          title: 'Creation Failed',
-          message: errorData.error || 'Failed to create category',
-          duration: 5000
-        })
-      }
-    } catch (err) {
-      setError('Failed to create category. Please try again.')
+      // Redirect back to categories list
+      router.push('/dashboard/categories')
+    } catch (error) {
+      console.error('Failed to create category:', error)
+      const message = getErrorMessage(error, 'Failed to create category. Please try again.')
+      setError(message)
       addNotification({
         type: 'error',
         title: 'Creation Failed',
-        message: 'Failed to create category. Please try again.',
+        message,
         duration: 5000
       })
     } finally {

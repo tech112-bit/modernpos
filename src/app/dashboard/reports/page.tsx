@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { useSmartDataFetching } from '@/hooks'
 import { LoadingSpinner, Card } from '@/components/ui'
 import SalesTrendChart from '@/components/SalesTrendChart'
+import { type ReportData, type ReportsApiResponse } from '@/types/report'
+import { getSalesReport } from '@/actions/reports'
 import { 
   ArrowPathIcon,
   ChevronDownIcon,
@@ -15,32 +17,6 @@ import {
   ShoppingCartIcon,
   ArrowTrendingUpIcon
 } from '@heroicons/react/24/outline'
-
-interface ReportData {
-  period: string
-  salesData: Array<{
-    date: string
-    total: number
-    count: number
-  }>
-  topProducts: Array<{
-    name: string
-    quantity: number
-    revenue: number
-  }>
-  paymentBreakdown: Array<{
-    method: string
-    amount: number
-    count: number
-  }>
-  summary: {
-    totalRevenue: number
-    totalSales: number
-    averageOrderValue: number
-  }
-}
-
-type ReportsApiResponse = ReportData
 
 export default function ReportsPage() {
   const { addNotification } = useNotifications()
@@ -55,11 +31,12 @@ export default function ReportsPage() {
     error,
     refetch: fetchReportData 
   } = useSmartDataFetching<ReportsApiResponse>({
-    endpoint: `/api/reports/sales?period=${selectedPeriod}`,
+    cacheKey: `reports:sales:${selectedPeriod}`,
+    fetcher: ({ signal }) => getSalesReport(selectedPeriod, signal),
     autoFetch: true,
     cacheDuration: 300000, // Cache for 5 minutes
     debounceDelay: 500, // Debounce API calls
-    onError: (errorMessage: string) => {
+    onError: () => {
       addNotification({
         type: 'error',
         title: 'Fetch Failed',
@@ -69,37 +46,11 @@ export default function ReportsPage() {
     }
   })
 
-  // Debug: Log the API response
-  console.log('Reports API Response:', reportData)
-  console.log('Reports API Endpoint:', `/api/reports/sales?period=${selectedPeriod}`)
-  console.log('Loading state:', loading)
-  console.log('Error state:', error)
-
-  // Monitor data changes
-  useEffect(() => {
-    console.log('useEffect - reportData changed:', reportData)
-    if (reportData) {
-      console.log('Data structure:', {
-        hasSalesData: !!reportData.salesData,
-        salesDataLength: reportData.salesData?.length,
-        salesDataKeys: reportData.salesData?.[0] ? Object.keys(reportData.salesData[0]) : []
-      })
-    }
-  }, [reportData])
-
   // Memoize processed data to prevent recalculation
   const processedData = useMemo(() => {
     if (!reportData || !reportData.salesData || reportData.salesData.length === 0) {
-      console.log('No processed data because:', {
-        hasReportData: !!reportData,
-        hasSalesData: !!(reportData?.salesData),
-        salesDataLength: reportData?.salesData?.length || 0
-      })
       return null
     }
-    
-    console.log('Processing report data:', reportData)
-    console.log('salesData:', reportData.salesData)
     
     return {
       ...reportData,
@@ -145,6 +96,7 @@ export default function ReportsPage() {
         duration: 3000
       })
     } catch (error) {
+      console.error('Report export failed:', error)
       addNotification({
         type: 'error',
         title: 'Export Failed',
@@ -271,22 +223,6 @@ export default function ReportsPage() {
       <Card>
         <div className="p-6 text-center">
           <p className="text-gray-500">No report data available</p>
-          <div className="mt-4 p-4 bg-gray-100 rounded text-left text-sm">
-            <p className="font-medium">Debug Info:</p>
-            <p>Loading: {loading ? 'Yes' : 'No'}</p>
-            <p>Error: {error || 'None'}</p>
-            <p>Has reportData: {reportData ? 'Yes' : 'No'}</p>
-            {reportData && (
-              <>
-                <p>Report data keys: {Object.keys(reportData).join(', ')}</p>
-                <p>Has salesData: {reportData.salesData ? 'Yes' : 'No'}</p>
-                <p>salesData length: {reportData.salesData?.length || 0}</p>
-                <pre className="mt-2 text-xs overflow-auto max-h-40">
-                  {JSON.stringify(reportData, null, 2)}
-                </pre>
-              </>
-            )}
-          </div>
         </div>
       </Card>
     )

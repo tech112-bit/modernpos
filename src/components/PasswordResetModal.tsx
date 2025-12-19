@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useNotifications } from '@/contexts/NotificationContext'
+import { resetUserPassword } from '@/actions/users'
+import { getErrorMessage } from '@/actions/http'
 import { useMobileLayout } from '@/hooks/useMobileLayout'
 import { 
   XMarkIcon, 
@@ -91,41 +93,24 @@ export default function PasswordResetModal({ isOpen, onClose, user }: PasswordRe
 
     try {
       setIsResetting(true)
-      
-      const response = await fetch(`/api/users/${user.id}/reset-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ newPassword }),
-      })
 
-      if (response.ok) {
-        addNotification({
-          type: 'success',
-          title: 'Password Reset Successful',
-          message: `Password has been reset for ${user.email}`,
-          duration: 5000
-        })
-        
-        // Clear the form and close modal
-        setNewPassword('')
-        onClose()
-      } else {
-        const errorData = await response.json()
-        addNotification({
-          type: 'error',
-          title: 'Password Reset Failed',
-          message: errorData.error || 'Failed to reset password',
-          duration: 5000
-        })
-      }
+      await resetUserPassword(user.id, newPassword)
+      addNotification({
+        type: 'success',
+        title: 'Password Reset Successful',
+        message: `Password has been reset for ${user.email}`,
+        duration: 5000
+      })
+      
+      // Clear the form and close modal
+      setNewPassword('')
+      onClose()
     } catch (error) {
       console.error('Error resetting password:', error)
       addNotification({
         type: 'error',
         title: 'Network Error',
-        message: 'Failed to connect to server',
+        message: getErrorMessage(error, 'Failed to connect to server'),
         duration: 5000
       })
     } finally {

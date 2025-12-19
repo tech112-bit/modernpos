@@ -23,6 +23,7 @@ export default function MfaSetup() {
         duration: 5000
       })
     } catch (error) {
+      console.error('MFA setup failed:', error)
       addNotification({
         type: 'error',
         title: 'MFA Setup Failed',
@@ -56,6 +57,7 @@ export default function MfaSetup() {
         })
       }
     } catch (error) {
+      console.error('MFA verification error:', error)
       addNotification({
         type: 'error',
         title: 'Verification Error',
@@ -76,6 +78,7 @@ export default function MfaSetup() {
         duration: 5000
       })
     } catch (error) {
+      console.error('Generating backup codes failed:', error)
       addNotification({
         type: 'error',
         title: 'Backup Codes Failed',

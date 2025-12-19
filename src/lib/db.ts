@@ -111,7 +111,7 @@ export async function testTransaction() {
   }
   
   try {
-    const result = await executeTransaction(async (tx) => {
+    const result = await executeTransaction(async () => {
       // Simple test operation
       return { success: true, timestamp: new Date().toISOString() }
     })

@@ -180,7 +180,6 @@ export const decryptField = (encryptedText: string, secretKey: string): string =
       throw new Error('Invalid encrypted text format')
     }
     
-    const iv = Buffer.from(textParts[0], 'hex')
     const encrypted = textParts[1]
     const decipher = crypto.createDecipher('aes-256-cbc', secretKey)
     

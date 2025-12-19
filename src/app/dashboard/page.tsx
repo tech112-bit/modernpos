@@ -9,6 +9,8 @@ import { useCurrency } from '@/contexts/CurrencyContext'
 import { useSettings } from '@/contexts/SettingsContext'
 import { LoadingSpinner, Card } from '@/components/ui'
 import { useSmartDataFetching } from '@/hooks'
+import { type DashboardApiResponse, type DashboardStats } from '@/types/dashboard'
+import { getDashboardStats } from '@/actions/dashboard'
 
 import QuickSearch from '@/components/QuickSearch'
 import CurrencySelector from '@/components/CurrencySelector'
@@ -26,26 +28,6 @@ import {
   ShieldCheckIcon
 } from '@heroicons/react/24/outline'
 
-interface DashboardStats {
-  todaySales: number
-  totalProducts: number
-  totalCustomers: number
-  totalCategories: number
-  lowStockProducts: number
-}
-
-interface DashboardApiResponse {
-  totals?: {
-    products: number
-    customers: number
-    categories: number
-  }
-  today?: {
-    revenue: number
-  }
-  lowStockCount?: number
-}
-
 export default function DashboardPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
@@ -60,11 +42,12 @@ export default function DashboardPage() {
     error,
     refetch: fetchDashboardStats
   } = useSmartDataFetching<DashboardApiResponse>({
-    endpoint: '/api/dashboard',
+    cacheKey: 'dashboard:stats',
+    fetcher: ({ signal }) => getDashboardStats(signal),
     autoFetch: !authLoading && !!user && user.role !== 'ADMIN',
     cacheDuration: 60000, // Cache for 1 minute
     debounceDelay: 500, // Debounce API calls
-    onError: (errorMessage: string) => {
+    onError: () => {
       addNotification({
         type: 'error',
         title: 'Dashboard Error',
@@ -261,8 +244,8 @@ export default function DashboardPage() {
         <QuickSearch />
       </div>
 
-      {/* Low Stock Alert - Only for non-admin users */}
-      {user && user.role !== 'ADMIN' && <LowStockAlert />}
+      {/* Low Stock Alert */}
+      {user && <LowStockAlert />}
 
       {/* Error Message */}
       {error && (
@@ -342,8 +325,8 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        {/* Low Stock Alert - Only for non-admin users with notifications enabled */}
-        {user && user.role !== 'ADMIN' && settings.notifications.lowStock && (
+        {/* Low Stock Alert - Only when enabled */}
+        {user && settings.notifications.lowStock && (
           <Card>
             <div className="p-3 xs:p-4 sm:p-5">
               <div className="flex items-center">

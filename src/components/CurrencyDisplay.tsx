@@ -8,7 +8,7 @@ interface CurrencyDisplayProps {
 }
 
 export default function CurrencyDisplay({ amount, className = '' }: CurrencyDisplayProps) {
-  const { currentCurrency, formatCurrency } = useCurrency()
+  const { formatCurrency } = useCurrency()
   
   if (amount === null || amount === undefined) {
     return <span className={className}>-</span>

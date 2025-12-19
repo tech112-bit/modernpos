@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { formatRelativeTime } from '@/lib/utils'
+import { type Customer } from '@/types/customer'
+import { deleteCustomer, getCustomer, updateCustomer } from '@/actions/customers'
+import { getErrorMessage } from '@/actions/http'
 import {
   ArrowLeftIcon,
   PencilIcon,
@@ -14,20 +17,6 @@ import {
   CalendarIcon,
   MapPinIcon
 } from '@heroicons/react/24/outline'
-
-interface Customer {
-  id: string
-  name: string
-  phone?: string
-  email?: string
-  address?: string
-  city?: string
-  state?: string
-  zip_code?: string
-  createdAt: string
-  totalSpent: number
-  orderCount: number
-}
 
 export default function CustomerDetailPage() {
   const router = useRouter()
@@ -43,38 +32,21 @@ export default function CustomerDetailPage() {
   const [editForm, setEditForm] = useState<Partial<Customer>>({})
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    fetchCustomer()
-  }, [customerId])
-
-  const fetchCustomer = async () => {
+  const fetchCustomer = useCallback(async () => {
     try {
-      const response = await fetch(`/api/customers/${customerId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setCustomer({
-          id: data.id,
-          name: data.name,
-          phone: data.phone,
-          email: data.email || '',
-          address: data.address,
-          city: data.city,
-          state: data.state,
-          zip_code: data.zip_code,
-          createdAt: data.createdAt,
-          totalSpent: Number(data.totalSpent || 0),
-          orderCount: data._count.sales
-        })
-      } else {
-        setError('Customer not found')
-      }
+      const data = await getCustomer(customerId)
+      setCustomer(data)
     } catch (error) {
       console.error('Error fetching customer:', error)
-      setError('Failed to fetch customer')
+      setError(getErrorMessage(error, 'Failed to fetch customer'))
     } finally {
       setLoading(false)
     }
-  }
+  }, [customerId])
+
+  useEffect(() => {
+    fetchCustomer()
+  }, [fetchCustomer])
 
   const handleEdit = () => {
     if (!customer) return
@@ -104,44 +76,25 @@ export default function CustomerDetailPage() {
     setError('')
 
     try {
-      const response = await fetch(`/api/customers/${customerId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(editForm)
+      await updateCustomer(customerId, editForm)
+      const refreshed = await getCustomer(customerId)
+      setCustomer(refreshed)
+      setIsEditing(false)
+      setEditForm({})
+      addNotification({
+        type: 'success',
+        title: 'Customer Updated',
+        message: 'Customer information has been updated successfully.',
+        duration: 4000
       })
-
-      if (response.ok) {
-        const updatedCustomer = await response.json()
-        setCustomer({
-          ...customer,
-          ...updatedCustomer
-        })
-        setIsEditing(false)
-        setEditForm({})
-        addNotification({
-          type: 'success',
-          title: 'Customer Updated',
-          message: 'Customer information has been updated successfully.',
-          duration: 4000
-        })
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Failed to update customer')
-        addNotification({
-          type: 'error',
-          title: 'Update Failed',
-          message: errorData.error || 'Failed to update customer',
-          duration: 5000
-        })
-      }
-    } catch (err) {
-      setError('Failed to update customer. Please try again.')
+    } catch (error) {
+      console.error('Failed to update customer:', error)
+      const message = getErrorMessage(error, 'Failed to update customer. Please try again.')
+      setError(message)
       addNotification({
         type: 'error',
         title: 'Update Failed',
-        message: 'Failed to update customer. Please try again.',
+        message,
         duration: 5000
       })
     } finally {
@@ -175,34 +128,21 @@ export default function CustomerDetailPage() {
   }
 
   const performDelete = async () => {
-
     try {
-      const response = await fetch(`/api/customers/${customerId}`, {
-        method: 'DELETE'
+      await deleteCustomer(customerId)
+      addNotification({
+        type: 'success',
+        title: 'Customer Deleted',
+        message: 'Customer has been deleted successfully.',
+        duration: 4000
       })
-
-      if (response.ok) {
-        addNotification({
-          type: 'success',
-          title: 'Customer Deleted',
-          message: 'Customer has been deleted successfully.',
-          duration: 4000
-        })
-        router.push('/dashboard/customers')
-      } else {
-        const errorData = await response.json()
-        addNotification({
-          type: 'error',
-          title: 'Delete Failed',
-          message: `Failed to delete customer: ${errorData.error}`,
-          duration: 5000
-        })
-      }
+      router.push('/dashboard/customers')
     } catch (error) {
+      console.error('Failed to delete customer:', error)
       addNotification({
         type: 'error',
         title: 'Delete Failed',
-        message: 'Failed to delete customer. Please try again.',
+        message: getErrorMessage(error, 'Failed to delete customer. Please try again.'),
         duration: 5000
         })
     }
@@ -287,6 +227,17 @@ export default function CustomerDetailPage() {
           )}
         </div>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <div className="mt-2 text-sm text-red-700">{error}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Customer Information */}
       <div className="bg-white shadow rounded-lg">
@@ -458,7 +409,7 @@ export default function CustomerDetailPage() {
               Total Spent
             </h3>
             <p className="text-3xl font-bold text-green-600">
-              {formatCurrency(customer.totalSpent)}
+              {formatCurrency(customer.totalSpent ?? 0)}
             </p>
             <p className="text-sm text-gray-500 mt-1">Lifetime value in {currentCurrency.code}</p>
           </div>

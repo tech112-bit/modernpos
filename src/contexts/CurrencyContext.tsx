@@ -1,16 +1,8 @@
 'use client'
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react'
-
-export interface Currency {
-  code: string
-  name: string
-  symbol: string
-  position: 'before' | 'after'
-  decimalPlaces: number
-  exchangeRate: number // Rate relative to USD
-  locale: string
-}
+import { type Currency } from '@/types/currency'
+export type { Currency } from '@/types/currency'
 
 export const SUPPORTED_CURRENCIES: Currency[] = [
   // Note: MMK is the base currency for stored prices in the database

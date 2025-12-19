@@ -1,85 +1,61 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
-import { LoadingSpinner, Card } from '@/components/ui'
 import { useCsrfToken } from '@/hooks/useCsrfToken'
-import { transformProductData, transformToApiFormat, convertToMMK, safeNumber, type TransformedProduct } from '@/lib/utils'
+import { transformToApiFormat, convertToMMK, safeNumber } from '@/lib/utils'
+import { type ProductDetail } from '@/types/product'
+import { type Category } from '@/types/category'
+import { listCategories } from '@/actions/categories'
+import { deleteProduct, getProduct, updateProduct } from '@/actions/products'
+import { getErrorMessage } from '@/actions/http'
 import {
   ArrowLeftIcon,
   CheckIcon,
   TrashIcon
 } from '@heroicons/react/24/outline'
 
-interface Product {
-  id: string
-  name: string
-  description: string
-  price: number | string
-  cost: number | string
-  stock: number
-  category: string
-  sku: string
-  barcode: string
-}
-
-interface Category {
-  id: string
-  name: string
-}
-
 export default function EditProductPage() {
   const router = useRouter()
   const params = useParams()
   const productId = params.id as string
-  const { currentCurrency, formatCurrency, convertCurrency } = useCurrency()
+  const { currentCurrency } = useCurrency()
   const { addNotification } = useNotifications()
   const csrfToken = useCsrfToken()
 
-  const [product, setProduct] = useState<Product | null>(null)
+  const [product, setProduct] = useState<ProductDetail | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    fetchProduct()
-    fetchCategories()
-  }, [productId])
-
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
     try {
-      const response = await fetch(`/api/products/${productId}`)
-              if (response.ok) {
-          const data = await response.json()
-          
-          // Use the reusable transformation utility for consistent data handling
-          const transformedProduct = transformProductData(data)
-          setProduct(transformedProduct)
-        } else {
-        setError('Product not found')
-      }
+      const data = await getProduct(productId)
+      setProduct(data)
     } catch (error) {
       console.error('Error fetching product:', error)
-      setError('Failed to fetch product')
+      setError(getErrorMessage(error, 'Failed to fetch product'))
     } finally {
       setLoading(false)
     }
-  }
+  }, [productId])
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
-      const response = await fetch('/api/categories')
-      if (response.ok) {
-        const data = await response.json()
-        setCategories(data)
-      }
+      const data = await listCategories()
+      setCategories(data)
     } catch (error) {
       console.error('Error fetching categories:', error)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    fetchProduct()
+    fetchCategories()
+  }, [fetchCategories, fetchProduct])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -103,29 +79,18 @@ export default function EditProductPage() {
 
       console.log('Sending product data:', productData)
 
-      const response = await fetch(`/api/products/${productId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(productData)
+      await updateProduct(productId, productData)
+      addNotification({
+        type: 'success',
+        title: 'Product Updated',
+        message: `Product "${product.name}" has been updated successfully.`,
+        duration: 5000
       })
-
-      if (response.ok) {
-        addNotification({
-          type: 'success',
-          title: 'Product Updated',
-          message: `Product "${product.name}" has been updated successfully.`,
-          duration: 5000
-        })
-        // Redirect back to products list
-        router.push('/dashboard/products')
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Failed to update product')
-      }
-    } catch (err) {
-      setError('Failed to update product. Please try again.')
+      // Redirect back to products list
+      router.push('/dashboard/products')
+    } catch (error) {
+      console.error('Failed to update product:', error)
+      setError(getErrorMessage(error, 'Failed to update product. Please try again.'))
     } finally {
       setSaving(false)
     }
@@ -158,29 +123,18 @@ export default function EditProductPage() {
     setError('')
 
     try {
-      const response = await fetch(`/api/products/${productId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ csrfToken })
+      await deleteProduct(productId, csrfToken)
+      addNotification({
+        type: 'success',
+        title: 'Product Deleted',
+        message: `Product has been deleted successfully.`,
+        duration: 5000
       })
-
-      if (response.ok) {
-        addNotification({
-          type: 'success',
-          title: 'Product Deleted',
-          message: `Product has been deleted successfully.`,
-          duration: 5000
-        })
-        // Redirect back to products list
-        router.push('/dashboard/products')
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Failed to delete product')
-      }
-    } catch (err) {
-      setError('Failed to delete product. Please try again.')
+      // Redirect back to products list
+      router.push('/dashboard/products')
+    } catch (error) {
+      console.error('Failed to delete product:', error)
+      setError(getErrorMessage(error, 'Failed to delete product. Please try again.'))
     } finally {
       setSaving(false)
     }
@@ -193,7 +147,7 @@ export default function EditProductPage() {
     return currentCurrency?.symbol || currentCurrency?.code || 'MMK'
   }
 
-  const handleInputChange = (field: keyof Product, value: string | number) => {
+  const handleInputChange = (field: keyof ProductDetail, value: string | number) => {
     if (!product) return
     setProduct({ ...product, [field]: value })
   }

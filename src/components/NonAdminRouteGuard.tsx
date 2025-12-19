@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import useAuthRedirect from '@/hooks/useAuthRedirect'
 import { ShieldCheckIcon } from '@heroicons/react/24/outline'
 
 interface NonAdminRouteGuardProps {
@@ -14,12 +14,10 @@ export default function NonAdminRouteGuard({ children, fallback }: NonAdminRoute
   const { user, loading } = useAuth()
   const router = useRouter()
 
-  useEffect(() => {
-    if (!loading && user?.role === 'ADMIN') {
-      // Redirect admin users to dashboard
-      router.push('/dashboard')
-    }
-  }, [user, loading, router])
+  useAuthRedirect({
+    denyRoles: ['ADMIN'],
+    redirectTo: '/dashboard'
+  })
 
   // Show loading state
   if (loading) {

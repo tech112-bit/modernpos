@@ -74,6 +74,8 @@ model sales {
   id           String       @id
   total        Decimal      @db.Decimal(10, 2)
   payment_type PaymentType  @default(CASH)
+  payment_status PaymentStatus @default(NOT_PAID)
+  sale_channel SaleChannel @default(IN_STORE)
   discount     Decimal      @default(0) @db.Decimal(10, 2)
   customer_id  String?
   user_id      String
@@ -106,6 +108,17 @@ enum PaymentType {
   CASH
   CARD
   MOBILE_PAY
+}
+
+enum PaymentStatus {
+  PAID
+  NOT_PAID
+  CASH_ON_DELIVERY
+}
+
+enum SaleChannel {
+  IN_STORE
+  ONLINE
 }
 
 enum UserRole {

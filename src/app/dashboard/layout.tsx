@@ -1,10 +1,11 @@
 'use client'
 
-import { ReactNode, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { AuthErrorBoundary } from '@/components/AuthErrorBoundary'
+import useAuthRedirect from '@/hooks/useAuthRedirect'
+import { type DashboardLayoutProps } from '@/types/layout'
 
 import { 
   HomeIcon, 
@@ -18,21 +19,12 @@ import {
   ShieldCheckIcon
 } from '@heroicons/react/24/outline'
 
-interface DashboardLayoutProps {
-  children: ReactNode
-}
-
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const { user, loading } = useAuth()
   
   // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login')
-    }
-  }, [user, loading, router])
+  useAuthRedirect({ requireAuth: true, redirectTo: '/login' })
   
   // Show loading state while authentication is being checked
   if (loading) {

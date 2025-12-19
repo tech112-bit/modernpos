@@ -1,16 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-
-interface Settings {
-  language: string
-  lowStockThreshold: number
-  notifications: {
-    sales: boolean
-    inventory: boolean
-    lowStock: boolean
-  }
-}
+import { type Settings } from '@/types/settings'
 
 interface SettingsContextType {
   settings: Settings

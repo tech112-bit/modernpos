@@ -2,31 +2,22 @@
 
 import { useState } from 'react'
 import { useNotifications } from '@/contexts/NotificationContext'
+import { importCategories } from '@/actions/categories'
+import { getErrorMessage } from '@/actions/http'
 import { 
   CloudArrowUpIcon, 
   DocumentArrowDownIcon,
   XMarkIcon 
 } from '@heroicons/react/24/outline'
-
-interface ImportResult {
-  total: number
-  success: number
-  errors: number
-}
-
-interface ApiResponse {
-  message: string
-  summary: ImportResult
-  errors?: string[]
-}
+import { type ImportApiResponse, type ImportResultSummary } from '@/types/import'
 
 export default function CategoryImport() {
   const { addNotification } = useNotifications()
   const [file, setFile] = useState<File | null>(null)
   const [importing, setImporting] = useState(false)
-  const [result, setResult] = useState<ImportResult | null>(null)
+  const [result, setResult] = useState<ImportResultSummary | null>(null)
   const [showErrors, setShowErrors] = useState(false)
-  const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null)
+  const [apiResponse, setApiResponse] = useState<ImportApiResponse | null>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -49,37 +40,20 @@ export default function CategoryImport() {
     setResult(null)
 
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const response = await fetch('/api/categories/import', {
-        method: 'POST',
-        body: formData
+      const data: ImportApiResponse = await importCategories(file)
+      setResult(data.summary)
+      setApiResponse(data)
+      addNotification({
+        type: 'success',
+        title: 'Import Successful',
+        message: `Imported ${data.summary.success} categories successfully`
       })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setResult(data.summary)
-        setApiResponse(data)
-        addNotification({
-          type: 'success',
-          title: 'Import Successful',
-          message: `Imported ${data.summary.success} categories successfully`
-        })
-      } else {
-        addNotification({
-          type: 'error',
-          title: 'Import Failed',
-          message: data.error || 'Failed to import categories'
-        })
-      }
     } catch (error) {
       console.error('Import error:', error)
       addNotification({
         type: 'error',
         title: 'Import Error',
-        message: 'An error occurred during import'
+        message: getErrorMessage(error, 'An error occurred during import')
       })
     } finally {
       setImporting(false)

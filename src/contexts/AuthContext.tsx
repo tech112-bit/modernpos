@@ -2,15 +2,10 @@
 
 import { createContext, useContext, ReactNode } from 'react'
 import { useSmartAuth } from '@/hooks'
-
-interface User {
-  id: string
-  email: string
-  role: string
-}
+import { type AuthUser } from '@/types/auth'
 
 interface AuthContextType {
-  user: User | null
+  user: AuthUser | null
   loading: boolean
   login: (email: string, password: string) => Promise<boolean>
   logout: () => Promise<void>

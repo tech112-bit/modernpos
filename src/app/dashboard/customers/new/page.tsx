@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { useRouter } from 'next/navigation'
+import { createCustomer } from '@/actions/customers'
+import { getErrorMessage } from '@/actions/http'
 import {
   ArrowLeftIcon,
   PlusIcon
@@ -34,36 +36,24 @@ export default function NewCustomerPage() {
     setError('')
 
     try {
-      const response = await fetch('/api/customers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
+      const created = await createCustomer(formData)
+      addNotification({
+        type: 'success',
+        title: 'Customer Created',
+        message: `Customer ID: ${created.id} - Phone: ${created.phone ?? '-'}`,
+        duration: 5000
       })
-
-      if (response.ok) {
-        const created = await response.json()
-        addNotification({
-          type: 'success',
-          title: 'Customer Created',
-          message: `Customer ID: ${created.id} — Phone: ${created.phone}`,
-          duration: 5000
-        })
-        router.push(`/dashboard/customers/${created.id}`)
-      } else {
-        const errorData = await response.json()
-        const message = errorData.error || 'Failed to create customer'
-        setError(message)
-        addNotification({
-          type: 'warning',
-          title: 'Create Customer',
-          message,
-          duration: 6000
-        })
-      }
-    } catch (err) {
-      setError('Failed to create customer. Please try again.')
+      router.push(`/dashboard/customers/${created.id}`)
+    } catch (error) {
+      console.error('Failed to create customer:', error)
+      const message = getErrorMessage(error, 'Failed to create customer. Please try again.')
+      setError(message)
+      addNotification({
+        type: 'warning',
+        title: 'Create Customer',
+        message,
+        duration: 6000
+      })
     } finally {
       setSaving(false)
     }

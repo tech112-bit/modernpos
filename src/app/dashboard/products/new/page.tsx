@@ -4,19 +4,19 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeftIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { useCurrency } from '@/contexts/CurrencyContext'
-import { SUPPORTED_CURRENCIES } from '@/contexts/CurrencyContext'
 import { useNotifications } from '@/contexts/NotificationContext'
 import CurrencySelector from '@/components/CurrencySelector'
 import { useCsrfToken } from '@/hooks/useCsrfToken'
-
-interface Category {
-  id: string
-  name: string
-}
+import { type Category } from '@/types/category'
+import { listCategories } from '@/actions/categories'
+import { createProduct } from '@/actions/products'
+import { getErrorMessage } from '@/actions/http'
+import { convertToMMK } from '@/lib/utils'
+import { generateBarcodeEan13, generateSku } from '@/lib/product-identifiers'
 
 export default function NewProductPage() {
   const router = useRouter()
-  const { currentCurrency, formatCurrency } = useCurrency()
+  const { currentCurrency } = useCurrency()
   const { addNotification } = useNotifications()
   const csrfToken = useCsrfToken()
   const [saving, setSaving] = useState(false)
@@ -29,8 +29,6 @@ export default function NewProductPage() {
     cost: '',
     stock: '',
     category: '',
-    sku: '',
-    barcode: ''
   })
 
   const [categories, setCategories] = useState<Category[]>([])
@@ -45,11 +43,8 @@ export default function NewProductPage() {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/categories')
-      if (response.ok) {
-        const data = await response.json()
-        setCategories(data)
-      }
+      const data = await listCategories()
+      setCategories(data)
     } catch (error) {
       console.error('Error fetching categories:', error)
     }
@@ -66,14 +61,14 @@ export default function NewProductPage() {
 
     try {
       // Convert price and cost to MMK before sending to API
-      const mmkPrice = convertToMMK(parseFloat(formData.price))
-      const mmkCost = convertToMMK(parseFloat(formData.cost))
+      const mmkPrice = convertToMMK(parseFloat(formData.price), currentCurrency.code, currentCurrency.exchangeRate)
+      const mmkCost = convertToMMK(parseFloat(formData.cost), currentCurrency.code, currentCurrency.exchangeRate)
 
       const productData = {
         name: formData.name,
         description: formData.description,
-        sku: formData.sku,
-        barcode: formData.barcode,
+        sku: generateSku(formData.name),
+        barcode: generateBarcodeEan13(),
         price: mmkPrice,
         cost: mmkCost,
         stock: parseInt(formData.stock),
@@ -81,47 +76,21 @@ export default function NewProductPage() {
         csrfToken: csrfToken
       }
 
-      const response = await fetch('/api/products', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(productData)
+      await createProduct(productData)
+      addNotification({
+        type: 'success',
+        title: 'Product Created',
+        message: `Product "${formData.name}" has been created successfully.`,
+        duration: 5000
       })
-
-      if (response.ok) {
-        addNotification({
-          type: 'success',
-          title: 'Product Created',
-          message: `Product "${formData.name}" has been created successfully.`,
-          duration: 5000
-        })
-        // Redirect back to products list
-        router.push('/dashboard/products?refresh=1')
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Failed to create product')
-      }
-    } catch (err) {
-      setError('Failed to create product. Please try again.')
+      // Redirect back to products list
+      router.push('/dashboard/products?refresh=1')
+    } catch (error) {
+      console.error('Failed to create product:', error)
+      setError(getErrorMessage(error, 'Failed to create product. Please try again.'))
     } finally {
       setSaving(false)
     }
-  }
-
-  // Helper function to convert current currency amount to MMK
-  const convertToMMK = (amount: number): number => {
-    if (!currentCurrency || currentCurrency.code === 'MMK') {
-      return amount
-    }
-    
-    // Find MMK currency from supported currencies
-    const mmkCurrency = SUPPORTED_CURRENCIES.find(c => c.code === 'MMK')
-    if (!mmkCurrency) return amount
-    
-    // Convert from current currency to MMK
-    // If current currency has exchange rate relative to MMK, divide by it
-    return amount / currentCurrency.exchangeRate
   }
 
   // Helper function to get currency symbol
@@ -238,31 +207,12 @@ export default function NewProductPage() {
                         </select>
               </div>
 
-              <div>
-                <label htmlFor="sku" className="block text-sm font-medium text-gray-700">
-                  SKU *
-                </label>
-                <input
-                  type="text"
-                  id="sku"
-                  value={formData.sku}
-                  onChange={(e) => handleInputChange('sku', e.target.value)}
-                  required
-                  className={`mt-1 ${inputClasses}`}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="barcode" className="block text-sm font-medium text-gray-700">
-                  Barcode
-                </label>
-                <input
-                  type="text"
-                  id="barcode"
-                  value={formData.barcode}
-                  onChange={(e) => handleInputChange('barcode', e.target.value)}
-                  className={`mt-1 ${inputClasses}`}
-                />
+              <div className="sm:col-span-2">
+                <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+                  <p className="text-sm text-gray-700">
+                    SKU and barcode are generated automatically when you create the product.
+                  </p>
+                </div>
               </div>
 
               <div>

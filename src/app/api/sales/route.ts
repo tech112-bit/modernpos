@@ -4,8 +4,34 @@ import { ProductionErrorHandler } from '@/lib/error-handler'
 import { extractTokenFromCookies } from '@/lib/secure-cookies'
 import { executeTransaction } from '@/lib/db'
 import { prisma } from '@/lib/db'
-import { Prisma } from '@prisma/client'
 import { ensureStockAvailability, decrementStock } from '@/lib/stock'
+
+type PaymentStatus = 'PAID' | 'NOT_PAID' | 'CASH_ON_DELIVERY'
+type SaleChannel = 'IN_STORE' | 'ONLINE'
+
+const resolvePaymentStatus = ({
+  saleChannel,
+  paymentType,
+  paymentStatus
+}: {
+  saleChannel: SaleChannel
+  paymentType: 'CASH' | 'CARD' | 'MOBILE_PAY'
+  paymentStatus?: PaymentStatus
+}): PaymentStatus => {
+  if (saleChannel === 'IN_STORE') {
+    return 'PAID'
+  }
+
+  if (paymentStatus) {
+    return paymentStatus
+  }
+
+  if (paymentType === 'CASH') {
+    return 'CASH_ON_DELIVERY'
+  }
+
+  return 'NOT_PAID'
+}
 
 // Validation schema for creating sales
 const createSaleSchema = z.object({
@@ -17,6 +43,8 @@ const createSaleSchema = z.object({
     price: z.number().positive('Price must be positive')
   })).min(1, 'At least one item is required'),
   payment_type: z.enum(['CASH', 'CARD', 'MOBILE_PAY']).default('CASH'),
+  payment_status: z.enum(['PAID', 'NOT_PAID', 'CASH_ON_DELIVERY']).optional(),
+  sale_channel: z.enum(['IN_STORE', 'ONLINE']).default('IN_STORE'),
   discount: z.number().min(0).default(0)
 })
 
@@ -157,6 +185,11 @@ export async function POST(request: NextRequest) {
     
     // Calculate total
     const total = validatedData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0) - validatedData.discount
+    const resolvedPaymentStatus = resolvePaymentStatus({
+      saleChannel: validatedData.sale_channel,
+      paymentType: validatedData.payment_type,
+      paymentStatus: validatedData.payment_status
+    })
 
     // Build stock items without variant_id to stay compatible with unmigrated DBs
     const stockItems = validatedData.items.map(item => ({
@@ -174,6 +207,8 @@ export async function POST(request: NextRequest) {
           id: `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           total,
           payment_type: validatedData.payment_type,
+          payment_status: resolvedPaymentStatus,
+          sale_channel: validatedData.sale_channel,
           discount: validatedData.discount,
           customer_id: validatedData.customer_id || null,
           user_id: userId, // Use the authenticated user ID
@@ -189,7 +224,7 @@ export async function POST(request: NextRequest) {
               created_at: new Date()
             }))
           }
-        },
+        } as any,
         include: {
           sale_items: {
             include: {

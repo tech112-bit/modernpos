@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatRelativeTime } from '@/lib/utils'
 import { useSmartDataFetching } from '@/hooks'
+import { consolidatedSearch } from '@/actions/search'
 import { 
   MagnifyingGlassIcon, 
   XMarkIcon,
@@ -11,110 +12,75 @@ import {
   UserIcon,
   ShoppingCartIcon
 } from '@heroicons/react/24/outline'
-
-interface SearchResult {
-  type: 'product' | 'customer' | 'sale'
-  id: string
-  title: string
-  subtitle: string
-  url: string
-}
-
-interface ConsolidatedSearchResponse {
-  products: Array<{ id: string; name: string; sku: string; price: number }>
-  customers: Array<{ id: string; name: string; email?: string; phone?: string }>
-  sales: Array<{ id: string; total: number; createdAt: string }>
-}
+import { type ConsolidatedSearchResponse, type SearchResult } from '@/types/search'
 
 export default function QuickSearch() {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
-  const [results, setResults] = useState<SearchResult[]>([])
-  const [showResults, setShowResults] = useState(false)
-
   // Use smart data fetching with consolidated search endpoint
   const { 
     data: searchData, 
     loading: isSearching, 
-    refetch: performSearch 
   } = useSmartDataFetching<ConsolidatedSearchResponse>({
-    endpoint: `/api/search/consolidated?q=${searchTerm}`,
-    autoFetch: false, // Only fetch when explicitly called
+    cacheKey: `search:consolidated:${searchTerm}`,
+    fetcher: ({ signal }) => consolidatedSearch(searchTerm, signal),
+    autoFetch: searchTerm.length >= 2,
+    dependencies: [searchTerm],
     cacheDuration: 300000, // Cache for 5 minutes
-    debounceDelay: 500, // Debounce search requests
+    debounceDelay: 300, // Debounce search requests
     skipCache: searchTerm.length < 2 // Skip cache for short searches
   })
 
-  // Process search results when data changes
-  useEffect(() => {
-    if (searchData && searchTerm.length >= 2) {
-      const searchResults: SearchResult[] = []
+  const results = useMemo(() => {
+    if (!searchData || searchTerm.length < 2) return []
 
-      // Add product results
-      searchData.products?.slice(0, 3).forEach((product) => {
-        searchResults.push({
-          type: 'product',
-          id: product.id,
-          title: product.name,
-          subtitle: `SKU: ${product.sku} - $${product.price}`,
-          url: `/dashboard/products/${product.id}/edit`
-        })
+    const searchResults: SearchResult[] = []
+
+    // Add product results
+    searchData.products?.slice(0, 3).forEach((product) => {
+      searchResults.push({
+        type: 'product',
+        id: product.id,
+        title: product.name,
+        subtitle: `SKU: ${product.sku} - $${product.price}`,
+        url: `/dashboard/products/${product.id}/edit`
       })
+    })
 
-      // Add customer results
-      searchData.customers?.slice(0, 3).forEach((customer) => {
-        searchResults.push({
-          type: 'customer',
-          id: customer.id,
-          title: customer.name,
-          subtitle: customer.email || customer.phone || 'No contact info',
-          url: `/dashboard/customers/${customer.id}`
-        })
+    // Add customer results
+    searchData.customers?.slice(0, 3).forEach((customer) => {
+      searchResults.push({
+        type: 'customer',
+        id: customer.id,
+        title: customer.name,
+        subtitle: customer.email || customer.phone || 'No contact info',
+        url: `/dashboard/customers/${customer.id}`
       })
+    })
 
-      // Add sale results
-      searchData.sales?.slice(0, 3).forEach((sale) => {
-        searchResults.push({
-          type: 'sale',
-          id: sale.id,
-          title: `Sale #${sale.id.slice(-8)}`,
-          subtitle: `${formatRelativeTime(sale.createdAt)} - ${sale.total} MMK`,
-          url: `/dashboard/sales/${sale.id}`
-        })
+    // Add sale results
+    searchData.sales?.slice(0, 3).forEach((sale) => {
+      searchResults.push({
+        type: 'sale',
+        id: sale.id,
+        title: `Sale #${sale.id.slice(-8)}`,
+        subtitle: `${formatRelativeTime(sale.createdAt)} - ${sale.total} MMK`,
+        url: `/dashboard/sales/${sale.id}`
       })
+    })
 
-      setResults(searchResults)
-      setShowResults(true)
-    } else {
-      setResults([])
-      setShowResults(false)
-    }
+    return searchResults
   }, [searchData, searchTerm])
 
-  // Debounced search effect
-  useEffect(() => {
-    if (searchTerm.length >= 2) {
-      const timeoutId = setTimeout(() => {
-        performSearch()
-      }, 300)
-
-      return () => clearTimeout(timeoutId)
-    } else {
-      setResults([])
-      setShowResults(false)
-    }
-  }, [searchTerm, performSearch])
+  const showResults = searchTerm.length >= 2
 
   const handleResultClick = (result: SearchResult) => {
     router.push(result.url)
-    setShowResults(false)
     setSearchTerm('')
   }
 
   const handleClearSearch = () => {
     setSearchTerm('')
-    setResults([])
-    setShowResults(false)
   }
 
   const getResultIcon = (type: string) => {
@@ -187,7 +153,7 @@ export default function QuickSearch() {
       )}
 
       {/* No Results */}
-      {showResults && searchTerm.length >= 2 && !isSearching && results.length === 0 && (
+      {showResults && !isSearching && results.length === 0 && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg px-4 py-3">
           <p className="text-sm text-gray-500 text-center">No results found</p>
         </div>

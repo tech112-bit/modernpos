@@ -7,6 +7,9 @@ import { formatRelativeTime } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { LoadingSpinner, Card } from '@/components/ui'
 import { useSmartDataFetching, useDeleteConfirmation, useSearch } from '@/hooks'
+import { type Customer, type CustomersApiResponse } from '@/types/customer'
+import { deleteCustomer, listCustomers } from '@/actions/customers'
+import { getErrorMessage } from '@/actions/http'
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -16,25 +19,6 @@ import {
   PhoneIcon,
   EnvelopeIcon
 } from '@heroicons/react/24/outline'
-
-interface Customer {
-  id: string
-  name: string
-  phone: string
-  email: string
-  address: string
-  city: string
-  state: string
-  zip_code: string
-  createdAt: string
-  _count: {
-    sales: number
-  }
-}
-
-interface CustomersApiResponse {
-  customers: Customer[]
-}
 
 export default function CustomersPage() {
   const { addNotification } = useNotifications()
@@ -47,7 +31,8 @@ export default function CustomersPage() {
     error, 
     refetch: fetchCustomers 
   } = useSmartDataFetching<Customer[]>({
-    endpoint: '/api/customers',
+    cacheKey: 'customers:list',
+    fetcher: ({ signal }) => listCustomers(signal),
     autoFetch: !!user,
     cacheDuration: 300000, // Cache for 5 minutes
     debounceDelay: 500, // Debounce API calls
@@ -75,25 +60,17 @@ export default function CustomersPage() {
       'this customer',
       async (id: string) => {
         try {
-          const response = await fetch(`/api/customers/${id}`, {
-            method: 'DELETE'
+          await deleteCustomer(id)
+          // Refresh the customers list
+          fetchCustomers()
+          addNotification({
+            type: 'success',
+            title: 'Customer Deleted',
+            message: 'Customer has been deleted successfully.',
+            duration: 4000
           })
-
-          if (response.ok) {
-            // Refresh the customers list
-            fetchCustomers()
-            addNotification({
-              type: 'success',
-              title: 'Customer Deleted',
-              message: 'Customer has been deleted successfully.',
-              duration: 4000
-            })
-          } else {
-            const errorData = await response.json()
-            throw new Error(errorData.error || 'Failed to delete customer')
-          }
         } catch (error) {
-          throw error
+          throw new Error(getErrorMessage(error, 'Failed to delete customer'))
         }
       },
       {
@@ -160,7 +137,7 @@ export default function CustomersPage() {
             </div>
             <div className="ml-4 flex-1">
               <p className="text-base font-medium text-gray-500">Active Customers</p>
-              <p className="text-3xl font-bold text-gray-900">{customers.filter(cust => cust._count.sales > 0).length}</p>
+              <p className="text-3xl font-bold text-gray-900">{customers.filter(cust => (cust._count?.sales || 0) > 0).length}</p>
             </div>
           </div>
         </Card>
@@ -174,7 +151,7 @@ export default function CustomersPage() {
             </div>
             <div className="ml-4 flex-1">
               <p className="text-base font-medium text-gray-500">Total Sales</p>
-              <p className="text-3xl font-bold text-gray-900">{customers.reduce((sum, cust) => sum + cust._count.sales, 0)}</p>
+              <p className="text-3xl font-bold text-gray-900">{customers.reduce((sum, cust) => sum + (cust._count?.sales || 0), 0)}</p>
             </div>
           </div>
         </Card>
@@ -257,7 +234,7 @@ export default function CustomersPage() {
                         {customer.address}, {customer.city}, {customer.state} {customer.zip_code}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {customer._count.sales} sales • Joined {formatRelativeTime(new Date(customer.createdAt))}
+                        {customer._count?.sales || 0} sales • Joined {formatRelativeTime(new Date(customer.createdAt))}
                       </p>
                     </div>
                   </div>
@@ -304,7 +281,7 @@ export default function CustomersPage() {
                   <div className="flex items-center space-x-6 ml-6">
                     <div className="text-right">
                       <p className="text-sm font-medium text-gray-900">
-                        {customer._count.sales}
+                        {customer._count?.sales || 0}
                       </p>
                       <p className="text-xs text-gray-500">sales</p>
                     </div>
@@ -342,3 +319,4 @@ export default function CustomersPage() {
     </div>
   )
 }
+

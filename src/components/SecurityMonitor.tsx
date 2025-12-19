@@ -3,30 +3,9 @@
 import React, { useState, useEffect } from 'react'
 import { ShieldCheckIcon, ExclamationTriangleIcon, XCircleIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
 import { Card } from '@/components/ui'
-
-interface SecurityStatus {
-  status: 'secure' | 'warning' | 'insecure'
-  details: string
-  timestamp: string
-}
-
-interface SecurityValidation {
-  isValid: boolean
-  warnings: string[]
-  recommendations: string[]
-}
-
-interface SecurityHealthData {
-  cookieSecurity: SecurityStatus
-  validation: SecurityValidation
-  additionalChecks: {
-    environment: string
-    hasJwtSecret: boolean
-    jwtSecretLength: number
-    forceHttps: boolean
-    localhostHttps: boolean
-  }
-}
+import { type SecurityHealthData } from '@/types/security'
+import { getSecurityHealth } from '@/actions/security'
+import { getErrorMessage } from '@/actions/http'
 
 interface SecurityMonitorProps {
   className?: string
@@ -43,19 +22,11 @@ export const SecurityMonitor: React.FC<SecurityMonitorProps> = ({ className = ''
       setLoading(true)
       setError(null)
       
-      const response = await fetch('/api/security/health', {
-        credentials: 'include'
-      })
-      
-      if (!response.ok) {
-        throw new Error(`Security health check failed: ${response.status}`)
-      }
-      
-      const data = await response.json()
-      setSecurityData(data.data)
+      const data: SecurityHealthData = await getSecurityHealth()
+      setSecurityData(data)
       setLastUpdated(new Date())
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch security health'
+      const errorMessage = getErrorMessage(err, 'Failed to fetch security health')
       setError(errorMessage)
       console.error('Security health check error:', err)
     } finally {

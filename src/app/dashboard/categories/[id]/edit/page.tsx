@@ -1,24 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useNotifications } from '@/contexts/NotificationContext'
+import { deleteCategory, getCategory, updateCategory } from '@/actions/categories'
+import { getErrorMessage } from '@/actions/http'
 import {
   ArrowLeftIcon,
   CheckIcon,
   TrashIcon,
   TagIcon
 } from '@heroicons/react/24/outline'
-
-interface Category {
-  id: string
-  name: string
-  createdAt: string
-  _count?: {
-    products: number
-  }
-}
+import { type Category } from '@/types/category'
 
 export default function EditCategoryPage() {
   const router = useRouter()
@@ -31,26 +25,21 @@ export default function EditCategoryPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    fetchCategory()
-  }, [categoryId])
-
-  const fetchCategory = async () => {
+  const fetchCategory = useCallback(async () => {
     try {
-      const response = await fetch(`/api/categories/${categoryId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setCategory(data)
-      } else {
-        setError('Category not found')
-      }
+      const data = await getCategory(categoryId)
+      setCategory(data)
     } catch (error) {
       console.error('Error fetching category:', error)
-      setError('Failed to fetch category')
+      setError(getErrorMessage(error, 'Failed to fetch category'))
     } finally {
       setLoading(false)
     }
-  }
+  }, [categoryId])
+
+  useEffect(() => {
+    fetchCategory()
+  }, [fetchCategory])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,39 +49,23 @@ export default function EditCategoryPage() {
     setError('')
 
     try {
-      const response = await fetch(`/api/categories/${categoryId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ name: category.name.trim() })
+      await updateCategory(categoryId, category.name.trim())
+      addNotification({
+        type: 'success',
+        title: 'Category Updated',
+        message: 'Category has been updated successfully.',
+        duration: 4000
       })
-
-      if (response.ok) {
-        addNotification({
-          type: 'success',
-          title: 'Category Updated',
-          message: 'Category has been updated successfully.',
-          duration: 4000
-        })
-        // Redirect back to categories list
-        router.push('/dashboard/categories')
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Failed to update category')
-        addNotification({
-          type: 'error',
-          title: 'Update Failed',
-          message: errorData.error || 'Failed to update category',
-          duration: 5000
-        })
-      }
-    } catch (err) {
-      setError('Failed to update category. Please try again.')
+      // Redirect back to categories list
+      router.push('/dashboard/categories')
+    } catch (error) {
+      console.error('Failed to update category:', error)
+      const message = getErrorMessage(error, 'Failed to update category. Please try again.')
+      setError(message)
       addNotification({
         type: 'error',
         title: 'Update Failed',
-        message: 'Failed to update category. Please try again.',
+        message,
         duration: 5000
       })
     } finally {
@@ -127,35 +100,23 @@ export default function EditCategoryPage() {
     setError('')
 
     try {
-      const response = await fetch(`/api/categories/${categoryId}`, {
-        method: 'DELETE'
+      await deleteCategory(categoryId)
+      addNotification({
+        type: 'success',
+        title: 'Category Deleted',
+        message: 'Category has been deleted successfully.',
+        duration: 4000
       })
-
-      if (response.ok) {
-        addNotification({
-          type: 'success',
-          title: 'Category Deleted',
-          message: 'Category has been deleted successfully.',
-          duration: 4000
-        })
-        // Redirect back to categories list
-        router.push('/dashboard/categories')
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Failed to delete category')
-        addNotification({
-          type: 'error',
-          title: 'Delete Failed',
-          message: errorData.error || 'Failed to delete category',
-          duration: 5000
-        })
-      }
-    } catch (err) {
-      setError('Failed to delete category. Please try again.')
+      // Redirect back to categories list
+      router.push('/dashboard/categories')
+    } catch (error) {
+      console.error('Failed to delete category:', error)
+      const message = getErrorMessage(error, 'Failed to delete category. Please try again.')
+      setError(message)
       addNotification({
         type: 'error',
         title: 'Delete Failed',
-        message: 'Failed to delete category. Please try again.',
+        message,
         duration: 5000
       })
     } finally {
