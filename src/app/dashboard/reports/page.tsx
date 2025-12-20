@@ -10,7 +10,6 @@ import { type ReportData, type ReportsApiResponse } from '@/types/report'
 import { getSalesReport } from '@/actions/reports'
 import { 
   ArrowPathIcon,
-  ChevronDownIcon,
   DocumentArrowDownIcon,
   ChartBarIcon,
   CurrencyDollarIcon,
@@ -21,7 +20,9 @@ import {
 export default function ReportsPage() {
   const { addNotification } = useNotifications()
   const { formatCurrency } = useCurrency()
-  const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month'>('today')
+  const today = new Date().toISOString().split('T')[0]
+  const [startDate, setStartDate] = useState<string>(today)
+  const [endDate, setEndDate] = useState<string>(today)
   const [chartType, setChartType] = useState<'line' | 'bar'>('line')
 
   // Use smart data fetching with caching
@@ -31,8 +32,8 @@ export default function ReportsPage() {
     error,
     refetch: fetchReportData 
   } = useSmartDataFetching<ReportsApiResponse>({
-    cacheKey: `reports:sales:${selectedPeriod}`,
-    fetcher: ({ signal }) => getSalesReport(selectedPeriod, signal),
+    cacheKey: `reports:sales:${startDate}:${endDate}`,
+    fetcher: ({ signal }) => getSalesReport({ startDate, endDate }, signal),
     autoFetch: true,
     cacheDuration: 300000, // Cache for 5 minutes
     debounceDelay: 500, // Debounce API calls
@@ -62,15 +63,22 @@ export default function ReportsPage() {
     }
   }, [reportData])
 
-  const periods = [
-    { value: 'today', label: 'Today' },
-    { value: 'week', label: 'This Week' },
-    { value: 'month', label: 'This Month' }
-  ]
-
-  const handlePeriodChange = (period: 'today' | 'week' | 'month') => {
-    setSelectedPeriod(period)
+  const formatAmount = (amount: number) => {
+    const formatted = formatCurrency(amount)
+    if (formatted.endsWith('MMK')) {
+      return (
+        <>
+          {formatted.slice(0, -3)}
+          <span className="ml-0.5 text-[10px] xs:text-xs font-semibold text-gray-500">MMK</span>
+        </>
+      )
+    }
+    return formatted
   }
+
+  const periodLabel = startDate === endDate
+    ? new Date(startDate).toLocaleDateString()
+    : `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`
 
   const handleRefresh = () => {
     fetchReportData()
@@ -87,7 +95,7 @@ export default function ReportsPage() {
 
     try {
       const csvContent = generateCSV(processedData)
-      downloadCSV(csvContent, `sales-report-${selectedPeriod}-${new Date().toISOString().split('T')[0]}.csv`)
+      downloadCSV(csvContent, `sales-report-${startDate}-${endDate}.csv`)
       
       addNotification({
         type: 'success',
@@ -167,7 +175,7 @@ export default function ReportsPage() {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
-                    <dd className="text-lg font-medium text-gray-900">{formatCurrency(reportData.summary.totalRevenue)}</dd>
+                    <dd className="text-lg font-medium text-gray-900">{formatAmount(reportData.summary.totalRevenue)}</dd>
                   </dl>
                 </div>
               </div>
@@ -194,12 +202,15 @@ export default function ReportsPage() {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <ArrowTrendingUpIcon className="h-6 w-6 text-purple-400" />
+                  <ArrowTrendingUpIcon className={`h-6 w-6 ${reportData.summary.profit >= 0 ? 'text-green-500' : 'text-red-500'}`} />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Average Order Value</dt>
-                    <dd className="text-lg font-medium text-gray-900">{formatCurrency(reportData.summary.averageOrderValue)}</dd>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Profit</dt>
+                    <dd className={`text-lg font-medium ${reportData.summary.profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                      {reportData.summary.profit >= 0 ? '+' : '-'}
+                      {formatAmount(Math.abs(reportData.summary.profit))}
+                    </dd>
                   </dl>
                 </div>
               </div>
@@ -239,34 +250,41 @@ export default function ReportsPage() {
           </p>
         </div>
         
-        <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap gap-3 sm:gap-3">
+        <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap gap-3 sm:gap-3 md:items-end">
           {/* Period Selector (dropdown style) */}
-          <div className="relative w-full sm:w-48">
-            <select
-              value={selectedPeriod}
-              onChange={(e) => handlePeriodChange(e.target.value as 'today' | 'week' | 'month')}
-              className="w-full appearance-none rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {periods.map(period => (
-                <option key={period.value} value={period.value}>
-                  {period.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+          <div className="flex w-full sm:w-auto gap-2 md:gap-1.5">
+            <div className="flex-1 sm:flex-none">
+              <label className="block text-xs font-medium text-gray-500 mb-1 md:text-[11px]">From</label>
+              <input
+                type="date"
+                value={startDate}
+                max={endDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm font-medium text-gray-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 md:px-2.5 md:py-2 md:text-xs"
+              />
+            </div>
+            <div className="flex-1 sm:flex-none">
+              <label className="block text-xs font-medium text-gray-500 mb-1 md:text-[11px]">To</label>
+              <input
+                type="date"
+                value={endDate}
+                min={startDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm font-medium text-gray-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 md:px-2.5 md:py-2 md:text-xs"
+              />
+            </div>
           </div>
 
           {/* Chart Type Selector (dropdown style) */}
-          <div className="relative w-full sm:w-36">
+          <div className="relative w-full sm:w-36 md:w-28">
             <select
               value={chartType}
               onChange={(e) => setChartType(e.target.value as 'line' | 'bar')}
-              className="w-full appearance-none rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full appearance-none rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 md:px-3 md:py-2 md:text-xs"
             >
               <option value="line">Line</option>
               <option value="bar">Bar</option>
             </select>
-            <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
           </div>
 
           {/* Action Buttons */}
@@ -300,7 +318,7 @@ export default function ReportsPage() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
-                                     <dd className="text-lg font-medium text-gray-900">{formatCurrency(processedData.summary.totalRevenue)}</dd>
+                  <dd className="text-lg font-medium text-gray-900">{formatAmount(processedData.summary.totalRevenue)}</dd>
                 </dl>
               </div>
             </div>
@@ -327,12 +345,15 @@ export default function ReportsPage() {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <ArrowTrendingUpIcon className="h-6 w-6 text-purple-400" />
+                <ArrowTrendingUpIcon className={`h-6 w-6 ${processedData.summary.profit >= 0 ? 'text-green-500' : 'text-red-500'}`} />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Average Order Value</dt>
-                                     <dd className="text-lg font-medium text-gray-900">{formatCurrency(processedData.summary.averageOrderValue)}</dd>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Profit</dt>
+                  <dd className={`text-lg font-medium ${processedData.summary.profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    {processedData.summary.profit >= 0 ? '+' : '-'}
+                    {formatAmount(Math.abs(processedData.summary.profit))}
+                  </dd>
                 </dl>
               </div>
             </div>
@@ -348,7 +369,7 @@ export default function ReportsPage() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Period</dt>
-                  <dd className="text-lg font-medium text-gray-900 capitalize">{selectedPeriod}</dd>
+                  <dd className="text-lg font-medium text-gray-900">{periodLabel}</dd>
                 </dl>
               </div>
             </div>
@@ -362,7 +383,7 @@ export default function ReportsPage() {
           <h3 className="text-lg font-medium text-gray-900 mb-4">Sales Trend</h3>
           <SalesTrendChart 
             data={processedData.chartData}
-            period={selectedPeriod}
+            period={startDate === endDate ? 'today' : 'month'}
             chartType={chartType}
           />
         </div>

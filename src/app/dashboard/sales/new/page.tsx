@@ -401,7 +401,7 @@ export default function NewSalePage() {
                   <option value="CASH_ON_DELIVERY">Cash on Delivery</option>
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
-                  Use "Cash on Delivery" for online customers to collect payment later.
+                  Use &quot;Cash on Delivery&quot; for online customers to collect payment later.
                 </p>
               </div>
             )}

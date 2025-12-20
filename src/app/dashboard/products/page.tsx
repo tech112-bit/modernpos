@@ -7,7 +7,7 @@ import { useNotifications } from '@/contexts/NotificationContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { useSettings } from '@/contexts/SettingsContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { LoadingSpinner, Card } from '@/components/ui'
+import { LoadingSpinner, Card, ErrorMessageCard } from '@/components/ui'
 import { useSmartDataFetching, useDeleteConfirmation, useSearch } from '@/hooks'
 import ProductImport from '@/components/ProductImport'
 import { type ProductListItem, type ProductsApiResponse } from '@/types/product'
@@ -33,6 +33,7 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [showImport, setShowImport] = useState(false)
   const filterInputClasses = 'block w-full pl-8 xs:pl-9 md:pl-10 lg:pl-12 pr-2.5 xs:pr-3 md:pr-3 lg:pr-4 py-2 xs:py-2.5 md:py-2.5 lg:py-3 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs xs:text-sm md:text-sm lg:text-base'
+  const formatAmount = (value: number | string) => formatCurrency(Number(value))
 
   // Use smart data fetching with caching
   const { 
@@ -222,16 +223,7 @@ export default function ProductsPage() {
       </Card>
 
       {/* Error Message */}
-      {error && (
-        <Card className="bg-red-50 border-red-200">
-          <div className="flex">
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800 sm:text-base">Error</h3>
-              <div className="mt-2 text-sm text-red-700 sm:text-base">{error}</div>
-            </div>
-          </div>
-        </Card>
-      )}
+      {error && <ErrorMessageCard message={error} />}
 
       {/* Products List */}
       <Card className="overflow-hidden">
@@ -279,7 +271,7 @@ export default function ProductsPage() {
                         SKU: {product.sku} • {product.categories.name}
                       </p>
                       <p className="text-xs text-gray-500">
-                        Price: {formatCurrency(Number(product.price))} • Stock: {product.stock}
+                        Price: {formatAmount(product.price)}   Cost: {formatAmount(product.cost)} • Stock: {product.stock}
                       </p>
                     </div>
                   </div>
@@ -323,10 +315,10 @@ export default function ProductsPage() {
                   <div className="flex items-center space-x-6 ml-6">
                     <div className="text-right">
                       <p className="text-sm font-medium text-gray-900">
-                        {formatCurrency(Number(product.price))}
+                        {formatAmount(product.price)}
                       </p>
                       <p className="text-xs text-gray-500">
-                        Cost: {formatCurrency(Number(product.cost))}
+                        Cost: {formatAmount(product.cost)}
                       </p>
                     </div>
                     

@@ -309,6 +309,14 @@
   }
 }
 
+
+/* Hide elements only on tablet widths (768px-1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .tablet-hidden {
+    display: none !important;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

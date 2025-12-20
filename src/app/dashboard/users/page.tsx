@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext'
 import { formatRelativeTime } from '@/lib/utils'
-import { LoadingSpinner, Card } from '@/components/ui'
+import { LoadingSpinner, Card, ErrorMessageCard } from '@/components/ui'
 import { useSmartDataFetching } from '@/hooks'
 import { listUsers } from '@/actions/users'
 import { 
@@ -94,16 +94,7 @@ export default function UsersPage() {
         </div>
 
         {/* Error Message */}
-        {error && (
-          <Card className="bg-red-50 border-red-200">
-            <div className="flex">
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800 sm:text-base">Error</h3>
-                <div className="mt-2 text-sm text-red-700 sm:text-base">{error}</div>
-              </div>
-            </div>
-          </Card>
-        )}
+        {error && <ErrorMessageCard message={error} />}
 
         {/* Users List */}
         <Card className="overflow-hidden">

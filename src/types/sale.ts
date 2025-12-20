@@ -8,6 +8,7 @@ export interface SaleItem {
   products: {
     name: string
     sku: string
+    cost?: Decimalish
   }
 }
 

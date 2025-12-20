@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import type { Prisma } from '@prisma/client'
 import { ProductionErrorHandler } from '@/lib/error-handler'
 import { extractTokenFromCookies } from '@/lib/secure-cookies'
 import { executeTransaction } from '@/lib/db'
@@ -108,7 +109,8 @@ export async function GET(request: NextRequest) {
               select: {
                 id: true,
                 name: true,
-                sku: true
+                sku: true,
+                cost: true
               }
             }
           }
@@ -202,29 +204,31 @@ export async function POST(request: NextRequest) {
     const result = await executeTransaction(async (tx) => {
       await ensureStockAvailability(tx, stockItems)
 
+      const saleData = {
+        id: `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        total,
+        payment_type: validatedData.payment_type,
+        payment_status: resolvedPaymentStatus,
+        sale_channel: validatedData.sale_channel,
+        discount: validatedData.discount,
+        customer_id: validatedData.customer_id || null,
+        user_id: userId, // Use the authenticated user ID
+        created_at: new Date(),
+        updated_at: new Date(),
+        sale_items: {
+          create: validatedData.items.map(item => ({
+            id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            price: item.price,
+            user_id: userId,
+            created_at: new Date()
+          }))
+        }
+      } satisfies Prisma.salesCreateArgs['data']
+
       const sale = await tx.sales.create({
-        data: {
-          id: `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          total,
-          payment_type: validatedData.payment_type,
-          payment_status: resolvedPaymentStatus,
-          sale_channel: validatedData.sale_channel,
-          discount: validatedData.discount,
-          customer_id: validatedData.customer_id || null,
-          user_id: userId, // Use the authenticated user ID
-          created_at: new Date(),
-          updated_at: new Date(),
-          sale_items: {
-            create: validatedData.items.map(item => ({
-              id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              product_id: item.product_id,
-              quantity: item.quantity,
-              price: item.price,
-              user_id: userId,
-              created_at: new Date()
-            }))
-          }
-        } as any,
+        data: saleData,
         include: {
           sale_items: {
             include: {

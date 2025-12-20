@@ -6,10 +6,11 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
+import { formatRelativeTime } from '@/lib/utils'
 import { useSettings } from '@/contexts/SettingsContext'
-import { LoadingSpinner, Card } from '@/components/ui'
+import { LoadingSpinner, Card, ErrorMessageCard } from '@/components/ui'
 import { useSmartDataFetching } from '@/hooks'
-import { type DashboardApiResponse, type DashboardStats } from '@/types/dashboard'
+import { type DashboardApiResponse, type DashboardStats, type DashboardRecentSale } from '@/types/dashboard'
 import { getDashboardStats } from '@/actions/dashboard'
 
 import QuickSearch from '@/components/QuickSearch'
@@ -65,6 +66,7 @@ export default function DashboardPage() {
     totalCategories: dashboardData?.totals?.categories || 0,
     lowStockProducts: dashboardData?.lowStockCount || 0
   }
+  const recentSales = dashboardData?.recentSales || []
 
   // Redirect admin users to admin dashboard
   useEffect(() => {
@@ -138,6 +140,25 @@ export default function DashboardPage() {
       description: 'Update product inventory'
     }
   ]
+
+  const renderPaymentStatus = (status?: DashboardRecentSale['payment_status']) => {
+    if (!status) return null
+    const styles: Record<NonNullable<DashboardRecentSale['payment_status']>, string> = {
+      PAID: 'bg-green-100 text-green-800',
+      NOT_PAID: 'bg-red-100 text-red-800',
+      CASH_ON_DELIVERY: 'bg-amber-100 text-amber-800'
+    }
+    const labels: Record<NonNullable<DashboardRecentSale['payment_status']>, string> = {
+      PAID: 'Paid',
+      NOT_PAID: 'Not Paid',
+      CASH_ON_DELIVERY: 'Cash on Delivery'
+    }
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] xs:text-xs font-semibold ${styles[status]}`}>
+        {labels[status]}
+      </span>
+    )
+  }
 
   if (loading) {
     return <LoadingSpinner />
@@ -248,16 +269,7 @@ export default function DashboardPage() {
       {user && <LowStockAlert />}
 
       {/* Error Message */}
-      {error && (
-        <Card className="bg-red-50 border-red-200">
-          <div className="flex">
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800 sm:text-base">Error</h3>
-              <div className="mt-2 text-sm text-red-700 sm:text-base">{error}</div>
-            </div>
-          </div>
-        </Card>
-      )}
+      {error && <ErrorMessageCard message={error} />}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-3 xs:gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -384,10 +396,37 @@ export default function DashboardPage() {
           <h3 className="text-base xs:text-lg leading-6 font-medium text-gray-900 mb-3 xs:mb-4">
             Recent Activity
           </h3>
-          <div className="text-center py-6 xs:py-8 text-gray-500">
-            <p className="text-sm xs:text-base">No recent activity to display</p>
-            <p className="text-xs xs:text-sm mt-1">Start making sales to see activity here</p>
-          </div>
+          {recentSales.length === 0 ? (
+            <div className="text-center py-6 xs:py-8 text-gray-500">
+              <p className="text-sm xs:text-base">No recent activity to display</p>
+              <p className="text-xs xs:text-sm mt-1">Start making sales to see activity here</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentSales.map((sale) => (
+                <Link
+                  key={sale.id}
+                  href={`/dashboard/sales/${sale.id}`}
+                  className="flex items-center justify-between rounded-lg border border-gray-200 px-3 xs:px-4 py-2.5 xs:py-3 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm xs:text-base font-medium text-gray-900 truncate">
+                      Sale #{sale.id.slice(-8)}
+                    </p>
+                    <p className="text-xs xs:text-sm text-gray-500 truncate">
+                      {sale.customers?.name || 'Walk-in Customer'}  {formatRelativeTime(new Date(sale.created_at))}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2 xs:space-x-3">
+                    {renderPaymentStatus(sale.payment_status)}
+                    <span className="text-sm xs:text-base font-semibold text-gray-900">
+                      {formatCurrency(Number(sale.total))}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </Card>
     </div>

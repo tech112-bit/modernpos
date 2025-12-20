@@ -39,3 +39,14 @@ export async function getSale(saleId: string): Promise<Sale> {
 export async function deleteSale(saleId: string): Promise<void> {
   await apiRequestVoid(`/api/sales/${saleId}`, { method: 'DELETE' })
 }
+
+export async function updateSalePaymentStatus(
+  saleId: string,
+  payment_status: 'PAID' | 'NOT_PAID' | 'CASH_ON_DELIVERY'
+): Promise<Sale> {
+  return apiRequest<Sale>(`/api/sales/${saleId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ payment_status })
+  })
+}

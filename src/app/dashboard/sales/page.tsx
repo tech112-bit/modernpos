@@ -4,17 +4,20 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCurrency } from '@/contexts/CurrencyContext'
+import { useNotifications } from '@/contexts/NotificationContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { formatRelativeTime } from '@/lib/utils'
-import { LoadingSpinner, Card } from '@/components/ui'
+import { LoadingSpinner, Card, ErrorMessageCard } from '@/components/ui'
 import { useSmartDataFetching, useSearch } from '@/hooks'
 import { type Sale } from '@/types/sale'
-import { listSales } from '@/actions/sales'
+import { listSales, updateSalePaymentStatus } from '@/actions/sales'
+import { getErrorMessage } from '@/actions/http'
 import { 
   PlusIcon, 
   MagnifyingGlassIcon,
   CurrencyDollarIcon,
   ShoppingCartIcon,
+  ArrowTrendingUpIcon,
   UserIcon
 } from '@heroicons/react/24/outline'
 
@@ -22,9 +25,11 @@ export default function SalesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
+  const { addNotification } = useNotifications()
   const { formatCurrency } = useCurrency()
   const [channelFilter, setChannelFilter] = useState<'all' | Sale['sale_channel']>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | Sale['payment_status']>('all')
+  const [updatingSaleId, setUpdatingSaleId] = useState<string | null>(null)
 
   // Use smart data fetching with caching
   const { 
@@ -70,27 +75,95 @@ export default function SalesPage() {
   // Smart data fetching already handles caching and prevents excessive refreshes
   // No need for visibility change handler as the hook manages this automatically
 
-  const totalRevenue = sales.reduce((sum, sale) => sum + Number(sale.total), 0)
-  const totalSales = sales.length
-  const averageOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0
-
-  const renderPaymentStatusBadge = (status: Sale['payment_status']) => {
-    const styles: Record<Sale['payment_status'], string> = {
-      PAID: 'bg-green-100 text-green-800',
-      NOT_PAID: 'bg-red-100 text-red-800',
-      CASH_ON_DELIVERY: 'bg-amber-100 text-amber-800'
-    }
-    const labels: Record<Sale['payment_status'], string> = {
-      PAID: 'Paid',
-      NOT_PAID: 'Not Paid',
-      CASH_ON_DELIVERY: 'Cash on Delivery'
-    }
-    return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${styles[status]}`}>
-        {labels[status]}
-      </span>
-    )
+  const toNumber = (value: Sale['total'] | undefined) => {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : 0
   }
+
+  const totalRevenue = sales.reduce((sum, sale) => sum + toNumber(sale.total), 0)
+  const totalSales = sales.length
+  const totalCost = sales.reduce((sum, sale) => (
+    sum + sale.sale_items.reduce((saleSum, item) => (
+      saleSum + toNumber(item.products.cost) * item.quantity
+    ), 0)
+  ), 0)
+  const profit = totalRevenue - totalCost
+  const formatAmount = (amount: number) => {
+    const formatted = formatCurrency(amount)
+    if (formatted.endsWith('MMK')) {
+      return (
+        <>
+          {formatted.slice(0, -3)}
+          <span className="ml-0.5 text-[10px] xs:text-xs font-semibold text-gray-500">MMK</span>
+        </>
+      )
+    }
+    return formatted
+  }
+
+  const profitLabel = profit >= 0
+    ? <>+{formatAmount(profit)}</>
+    : <>-{formatAmount(Math.abs(profit))}</>
+
+  const statsCards = [
+    {
+      label: 'Total Revenue',
+      value: formatAmount(totalRevenue),
+      icon: CurrencyDollarIcon,
+      iconColor: 'text-green-400',
+      valueClass: 'text-gray-900'
+    },
+    {
+      label: 'Total Sales',
+      value: String(totalSales),
+      icon: ShoppingCartIcon,
+      iconColor: 'text-blue-400',
+      valueClass: 'text-gray-900'
+    },
+    {
+      label: 'Profit',
+      value: profitLabel,
+      icon: ArrowTrendingUpIcon,
+      iconColor: profit >= 0 ? 'text-green-400' : 'text-red-400',
+      valueClass: profit >= 0 ? 'text-green-600' : 'text-red-600'
+    }
+  ]
+
+  const handlePaymentStatusChange = async (saleId: string, status: Sale['payment_status']) => {
+    setUpdatingSaleId(saleId)
+    try {
+      await updateSalePaymentStatus(saleId, status)
+      await fetchSales()
+      addNotification({
+        type: 'success',
+        title: 'Payment Status Updated',
+        message: 'Sale payment status has been updated.',
+        duration: 3000
+      })
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Update Failed',
+        message: getErrorMessage(error, 'Failed to update payment status'),
+        duration: 5000
+      })
+    } finally {
+      setUpdatingSaleId(null)
+    }
+  }
+
+  const renderPaymentStatusSelect = (sale: Sale) => (
+    <select
+      value={sale.payment_status}
+      onChange={(e) => handlePaymentStatusChange(sale.id, e.target.value as Sale['payment_status'])}
+      disabled={updatingSaleId === sale.id}
+      className="rounded-md border border-gray-300 bg-white px-1.5 py-1 text-[9px] xs:text-[10px] md:text-[9px] font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+    >
+      <option value="PAID">Paid</option>
+      <option value="NOT_PAID">Not Paid</option>
+      <option value="CASH_ON_DELIVERY">Cash on Delivery</option>
+    </select>
+  )
 
   const renderSaleChannelBadge = (channel: Sale['sale_channel']) => {
     const styles: Record<Sale['sale_channel'], string> = {
@@ -189,59 +262,29 @@ export default function SalesPage() {
 
       {/* Sales Stats */}
       <div className="grid grid-cols-1 gap-3 xs:gap-4 sm:gap-5 sm:grid-cols-3">
-        <Card>
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <CurrencyDollarIcon className="h-4 w-4 xs:h-5 xs:w-5 md:h-6 md:w-6 text-green-400" />
+        {statsCards.map((stat) => (
+          <Card key={stat.label}>
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <stat.icon className={`h-4 w-4 xs:h-5 xs:w-5 md:h-6 md:w-6 ${stat.iconColor}`} />
+              </div>
+              <div className="ml-2 xs:ml-3 md:ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-xs xs:text-sm font-medium text-gray-500 truncate">{stat.label}</dt>
+                  <dd className={`text-sm xs:text-base md:text-lg font-medium ${stat.valueClass}`}>{stat.value}</dd>
+                </dl>
+              </div>
             </div>
-            <div className="ml-2 xs:ml-3 md:ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-xs xs:text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
-                <dd className="text-sm xs:text-base md:text-lg font-medium text-gray-900">{formatCurrency(totalRevenue)}</dd>
-              </dl>
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <ShoppingCartIcon className="h-4 w-4 xs:h-5 xs:w-5 md:h-6 md:w-6 text-blue-400" />
-            </div>
-            <div className="ml-2 xs:ml-3 md:ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-xs xs:text-sm font-medium text-gray-500 truncate">Total Sales</dt>
-                <dd className="text-sm xs:text-base md:text-lg font-medium text-gray-900">{totalSales}</dd>
-              </dl>
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <CurrencyDollarIcon className="h-4 w-4 xs:h-5 xs:w-5 md:h-6 md:w-6 text-purple-400" />
-            </div>
-            <div className="ml-2 xs:ml-3 md:ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-xs xs:text-sm font-medium text-gray-500 truncate">Avg Order Value</dt>
-                <dd className="text-sm xs:text-base md:text-lg font-medium text-gray-900">{formatCurrency(averageOrderValue)}</dd>
-              </dl>
-            </div>
-          </div>
-        </Card>
+          </Card>
+        ))}
       </div>
 
       {/* Error Message */}
       {error && (
-        <Card className="bg-red-50 border-transparent sm:border-red-200">
-          <div className="flex">
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800 sm:text-base">Error</h3>
-              <div className="mt-2 text-sm text-red-700 sm:text-base">{error}</div>
-            </div>
-          </div>
-        </Card>
+        <ErrorMessageCard
+          message={error}
+          className="border-transparent sm:border-red-200"
+        />
       )}
 
       {/* Sales List */}
@@ -280,7 +323,7 @@ export default function SalesPage() {
                         </div>
                         <div className="ml-3">
                           <h3 className="text-sm xs:text-base font-medium text-gray-900">
-                            Sale #{sale.id.slice(-8)}
+                            <span className="md:hidden lg:inline tablet-hidden">Sale </span>#{sale.id.slice(-8)}
                           </h3>
                           <p className="text-xs xs:text-sm text-gray-500">
                             {sale.customers?.name || 'Walk-in Customer'}
@@ -296,7 +339,7 @@ export default function SalesPage() {
                           <span aria-hidden="true">•</span>
                           {renderSaleChannelBadge(sale.sale_channel)}
                           <span aria-hidden="true"></span>
-                          {renderPaymentStatusBadge(sale.payment_status)}
+                          {renderPaymentStatusSelect(sale)}
                         </p>
                       </div>
                     </div>
@@ -306,7 +349,7 @@ export default function SalesPage() {
                         <span className="text-gray-600">Items:</span>
                         <span className="text-gray-900">{sale.sale_items.length}</span>
                       </div>
-                      <div className="flex justify-between text-xs xs:text-sm">
+                      <div className="hidden lg:flex justify-between text-xs xs:text-sm tablet-hidden">
                         <span className="text-gray-600">Processed by:</span>
                         <span className="text-gray-900">{sale.users.email}</span>
                       </div>
@@ -340,12 +383,18 @@ export default function SalesPage() {
                       </div>
                       <div className="ml-4 flex-1 min-w-0">
                         <h3 className="text-base font-medium text-gray-900 truncate">
-                          Sale #{sale.id.slice(-8)}
+                          <span className="md:hidden lg:inline tablet-hidden">Sale #{sale.id.slice(-8)}</span>
                         </h3>
                         <p className="text-sm text-gray-500">
+                          {sale.customers?.name || 'Walk-in Customer'}
+                        </p>
+                        <p className="hidden md:block text-xs text-gray-500">
+                          {sale.sale_items.length} items
+                        </p>
+                        <p className="hidden lg:block text-sm text-gray-500">
                           {sale.customers?.name || 'Walk-in Customer'} • {sale.sale_items.length} items
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="hidden lg:block tablet-hidden text-sm text-gray-500">
                           Processed by {sale.users.email} • {formatRelativeTime(new Date(sale.created_at))}
                         </p>
                       </div>
@@ -361,7 +410,7 @@ export default function SalesPage() {
                            <span aria-hidden="true">•</span>
                            {renderSaleChannelBadge(sale.sale_channel)}
                            <span aria-hidden="true"></span>
-                           {renderPaymentStatusBadge(sale.payment_status)}
+                           {renderPaymentStatusSelect(sale)}
                          </div>
                       </div>
                       
@@ -380,7 +429,7 @@ export default function SalesPage() {
                           className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                         >
                           <UserIcon className="h-4 w-4 mr-2" />
-                          View Details
+                          <span className="md:hidden lg:inline">View Details</span>
                         </Link>
                       </div>
                     </div>

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { formatRelativeTime } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
-import { LoadingSpinner, Card } from '@/components/ui'
+import { LoadingSpinner, Card, ErrorMessageCard } from '@/components/ui'
 import { useSmartDataFetching, useDeleteConfirmation, useSearch } from '@/hooks'
 import { type Customer, type CustomersApiResponse } from '@/types/customer'
 import { deleteCustomer, listCustomers } from '@/actions/customers'
@@ -174,16 +174,7 @@ export default function CustomersPage() {
       </Card>
 
       {/* Error Message */}
-      {error && (
-        <Card className="bg-red-50 border-red-200">
-          <div className="flex">
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800 sm:text-base">Error</h3>
-              <div className="mt-2 text-sm text-red-700 sm:text-base">{error}</div>
-            </div>
-          </div>
-        </Card>
-      )}
+      {error && <ErrorMessageCard message={error} />}
 
       {/* Customers List */}
       <Card className="overflow-hidden">

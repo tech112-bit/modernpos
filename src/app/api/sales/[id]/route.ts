@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { prisma } from '@/lib/db'
+import { extractTokenFromCookies } from '@/lib/secure-cookies'
+
+const updateSaleSchema = z.object({
+  payment_status: z.enum(['PAID', 'NOT_PAID', 'CASH_ON_DELIVERY'])
+})
 
 // GET /api/sales/[id] - Get single sale
 export async function GET(
@@ -52,6 +58,80 @@ export async function GET(
     console.error('Error fetching sale:', error)
     return NextResponse.json(
       { error: 'Failed to fetch sale' },
+      { status: 500 }
+    )
+  }
+}
+
+// PATCH /api/sales/[id] - Update sale fields (payment status)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const body = await request.json()
+    const data = updateSaleSchema.parse(body)
+
+    const authToken = extractTokenFromCookies(request)
+    if (!authToken) {
+      return NextResponse.json(
+        { error: 'Not authenticated' },
+        { status: 401 }
+      )
+    }
+
+    const { verifyToken } = await import('@/lib/auth')
+    const decoded = await verifyToken(authToken)
+    if (!decoded) {
+      return NextResponse.json(
+        { error: 'Invalid token' },
+        { status: 401 }
+      )
+    }
+
+    const isAdmin = decoded.role === 'ADMIN'
+    const userId = decoded.userId
+
+    const existing = await prisma.sales.findUnique({
+      where: { id },
+      select: { id: true, user_id: true }
+    })
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Sale not found' },
+        { status: 404 }
+      )
+    }
+
+    if (!isAdmin && existing.user_id !== userId) {
+      return NextResponse.json(
+        { error: 'Forbidden' },
+        { status: 403 }
+      )
+    }
+
+    const updated = await prisma.sales.update({
+      where: { id },
+      data: {
+        payment_status: data.payment_status,
+        updated_at: new Date()
+      }
+    })
+
+    return NextResponse.json(updated)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.issues },
+        { status: 400 }
+      )
+    }
+
+    console.error('Error updating sale:', error)
+    return NextResponse.json(
+      { error: 'Failed to update sale' },
       { status: 500 }
     )
   }

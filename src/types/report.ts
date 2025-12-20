@@ -18,7 +18,7 @@ export interface ReportData {
   summary: {
     totalRevenue: number
     totalSales: number
-    averageOrderValue: number
+    profit: number
   }
 }
 

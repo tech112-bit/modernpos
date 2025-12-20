@@ -253,6 +253,7 @@ function useSmartDataFetching<T = unknown>({
         clearTimeout(debounceTimeoutRef.current)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoFetch, debouncedFetch, cacheKey, ...dependencies])
 
   // Cleanup on unmount

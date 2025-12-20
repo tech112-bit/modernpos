@@ -29,32 +29,48 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const period = searchParams.get('period') || 'today'
+    const startDateParam = searchParams.get('startDate')
+    const endDateParam = searchParams.get('endDate')
     
     console.log(`API: Fetching sales report for period: ${period} for user: ${userId} (Admin: ${isAdmin})`)
     
     let startDate: Date
-    const endDate: Date = new Date()
-    
-    // Calculate date range based on period
-    switch (period) {
-      case 'today':
-        startDate = new Date()
-        startDate.setHours(0, 0, 0, 0)
-        break
-      case 'week':
-        startDate = new Date()
-        startDate.setDate(startDate.getDate() - 7)
-        startDate.setHours(0, 0, 0, 0)
-        break
-      case 'month':
-        startDate = new Date()
-        startDate.setDate(startDate.getDate() - 30) // Changed from -1 month to -30 days for more data
-        startDate.setHours(0, 0, 0, 0)
-        break
-      default:
-        startDate = new Date()
-        startDate.setDate(startDate.getDate() - 30) // Default to 30 days for better chart display
-        startDate.setHours(0, 0, 0, 0)
+    let endDate: Date
+
+    if (startDateParam && endDateParam) {
+      startDate = new Date(startDateParam)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(endDateParam)
+      endDate.setHours(23, 59, 59, 999)
+
+      if (endDate < startDate) {
+        const swap = startDate
+        startDate = endDate
+        endDate = swap
+      }
+    } else {
+      endDate = new Date()
+      // Calculate date range based on period
+      switch (period) {
+        case 'today':
+          startDate = new Date()
+          startDate.setHours(0, 0, 0, 0)
+          break
+        case 'week':
+          startDate = new Date()
+          startDate.setDate(startDate.getDate() - 7)
+          startDate.setHours(0, 0, 0, 0)
+          break
+        case 'month':
+          startDate = new Date()
+          startDate.setDate(startDate.getDate() - 30) // Changed from -1 month to -30 days for more data
+          startDate.setHours(0, 0, 0, 0)
+          break
+        default:
+          startDate = new Date()
+          startDate.setDate(startDate.getDate() - 30) // Default to 30 days for better chart display
+          startDate.setHours(0, 0, 0, 0)
+      }
     }
     
     console.log(`API: Date range - Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`)
@@ -87,7 +103,8 @@ export async function GET(request: NextRequest) {
             products: {
               select: {
                 name: true,
-                sku: true
+                sku: true,
+                cost: true
               }
             }
           }
@@ -112,7 +129,8 @@ export async function GET(request: NextRequest) {
     sales.forEach(sale => {
       let dateKey: string
       
-      if (period === 'today') {
+      const isSameDay = startDate.toDateString() === endDate.toDateString()
+      if (isSameDay) {
         // For today, group by hour
         const hour = sale.created_at.getHours()
         const hourStr = hour.toString().padStart(2, '0')
@@ -175,7 +193,12 @@ export async function GET(request: NextRequest) {
     // Calculate totals
     const totalRevenue = sales.reduce((sum, sale) => sum + Number(sale.total), 0) // Convert Decimal to number
     const totalSales = sales.length
-    const averageOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0
+    const totalCost = sales.reduce((sum, sale) => (
+      sum + sale.sale_items.reduce((saleSum, item) => (
+        saleSum + Number(item.products.cost || 0) * item.quantity
+      ), 0)
+    ), 0)
+    const profit = totalRevenue - totalCost
     
     const result = {
       period,
@@ -185,7 +208,7 @@ export async function GET(request: NextRequest) {
       summary: {
         totalRevenue,
         totalSales,
-        averageOrderValue
+        profit
       }
     }
     
