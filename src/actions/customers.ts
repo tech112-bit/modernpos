@@ -1,4 +1,4 @@
-import { apiRequest, apiRequestVoid } from '@/actions/http'
+import { apiRequest, apiRequestJson, apiRequestVoid } from '@/actions/http'
 import { type Customer, type CustomersApiResponse } from '@/types/customer'
 
 type CustomerApiResponse = {
@@ -37,19 +37,11 @@ export async function getCustomer(customerId: string): Promise<Customer> {
 }
 
 export async function createCustomer(payload: unknown): Promise<{ id: string; phone?: string; email?: string }> {
-  return apiRequest<{ id: string; phone?: string; email?: string }>('/api/customers', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  })
+  return apiRequestJson<{ id: string; phone?: string; email?: string }>('/api/customers', 'POST', payload)
 }
 
 export async function updateCustomer(customerId: string, payload: unknown): Promise<unknown> {
-  return apiRequest<unknown>(`/api/customers/${customerId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  })
+  return apiRequestJson<unknown>(`/api/customers/${customerId}`, 'PUT', payload)
 }
 
 export async function deleteCustomer(customerId: string): Promise<void> {

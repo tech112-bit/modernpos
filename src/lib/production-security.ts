@@ -164,7 +164,7 @@ export function getProductionSecurityHeaders(): Record<string, string> {
     return {
       ...baseHeaders,
       'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
-      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;",
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://vercel.live; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;",
       'X-Permitted-Cross-Domain-Policies': 'none',
       'X-Download-Options': 'noopen',
       'X-DNS-Prefetch-Control': 'off',
@@ -173,3 +173,4 @@ export function getProductionSecurityHeaders(): Record<string, string> {
   
   return baseHeaders
 }
+

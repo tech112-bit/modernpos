@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { verifyTokenEdge, JWTPayload } from '@/lib/jwt-edge'
 import { logSecurityEvent, detectSuspiciousActivity } from '@/lib/security-edge'
-import { extractTokenFromCookies } from '@/lib/secure-cookies'
+import { clearAuthCookies, extractTokenFromCookies } from '@/lib/secure-cookies'
 
 // Security headers for production
 const securityHeaders = {
@@ -11,7 +11,7 @@ const securityHeaders = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-XSS-Protection': '1; mode=block',
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none';"
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none';"
 }
 
 async function verifyTokenInMiddleware(token: string): Promise<JWTPayload | null> {
@@ -119,14 +119,8 @@ export async function middleware(request: NextRequest) {
       console.log('Invalid token, clearing cookies and redirecting to login')
       const response = NextResponse.redirect(new URL('/login', request.url))
       
-      // Clear the invalid token cookie
-      response.cookies.set('auth_token', '', {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'strict',
-        maxAge: 0,
-        path: '/',
-      })
+      // Clear auth cookies using centralized config
+      clearAuthCookies(response)
       
       return response
     }
@@ -157,14 +151,8 @@ export async function middleware(request: NextRequest) {
     // On error, redirect to login
     const response = NextResponse.redirect(new URL('/login', request.url))
     
-    // Clear any potentially corrupted cookies
-    response.cookies.set('auth_token', '', {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      maxAge: 0,
-      path: '/',
-    })
+    // Clear any potentially corrupted cookies using centralized config
+    clearAuthCookies(response)
     
     return response
   }
@@ -182,3 +170,4 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico|public).*)',
   ],
 }
+

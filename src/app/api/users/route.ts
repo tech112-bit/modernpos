@@ -1,56 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import bcrypt from 'bcryptjs'
-import { extractTokenFromCookies } from '@/lib/secure-cookies'
-import { verifyToken } from '@/lib/auth'
+import { requireAdmin } from '@/lib/api-helpers'
 import { USER_ROLES, USER_STATUSES } from '@/types/user'
-
-// Helper function to get user from token
-async function getAdminUser(request: NextRequest) {
-  try {
-    // Get token from secure cookies using our new utility
-    const token = extractTokenFromCookies(request)
-    
-    if (!token) {
-      console.log('❌ getAdminUser: No token found in cookies')
-      return { error: 'No token provided', status: 401 }
-    }
-
-    // Verify token and check if user is admin
-    const decoded = await verifyToken(token)
-    
-    if (!decoded || decoded.role !== 'ADMIN') {
-      console.log('❌ getAdminUser: Admin access required, user role:', decoded?.role)
-      return { error: 'Admin access required', status: 403 }
-    }
-
-    console.log('✅ getAdminUser: Authentication successful for admin user:', decoded.userId)
-    return { user: decoded }
-  } catch (error) {
-    console.error('❌ getAdminUser: Token verification error:', error)
-    return { error: 'Invalid token', status: 401 }
-  }
-}
 
 // GET /api/users - List all users (Admin only)
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await getAdminUser(request)
-    if ('error' in authResult) {
-      return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+    const authResult = await requireAdmin(request)
+    if (!authResult.success) {
+      return authResult.response as NextResponse
     }
 
     const users = await prisma.users.findMany({
-             select: {
-         id: true,
-         email: true,
-         role: true,
-         status: true,
-         created_at: true,
-         updated_at: true,
-         last_login_at: true
-       },
-       orderBy: { created_at: 'desc' }
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        status: true,
+        created_at: true,
+        updated_at: true,
+        last_login_at: true
+      },
+      orderBy: { created_at: 'desc' }
     })
 
     return NextResponse.json({ users })
@@ -68,10 +40,10 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🚀 POST /api/users: Starting user creation process')
     
-    const authResult = await getAdminUser(request)
-    if ('error' in authResult) {
-      console.log('❌ POST /api/users: Authentication failed:', authResult.error)
-      return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+    const authResult = await requireAdmin(request)
+    if (!authResult.success) {
+      console.log('? POST /api/users: Authentication failed')
+      return authResult.response as NextResponse
     }
 
     console.log('✅ POST /api/users: Authentication successful, proceeding with user creation')

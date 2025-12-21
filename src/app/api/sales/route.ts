@@ -10,6 +10,24 @@ import { ensureStockAvailability, decrementStock } from '@/lib/stock'
 type PaymentStatus = 'PAID' | 'NOT_PAID' | 'CASH_ON_DELIVERY'
 type SaleChannel = 'IN_STORE' | 'ONLINE'
 
+const numeric = (label: string) =>
+  z.preprocess((val) => {
+    if (typeof val === 'string') {
+      const parsed = parseFloat(val)
+      return isNaN(parsed) ? val : parsed
+    }
+    return val
+  }, z.number().positive(`${label} must be positive`))
+
+const integer = (label: string) =>
+  z.preprocess((val) => {
+    if (typeof val === 'string') {
+      const parsed = parseInt(val, 10)
+      return isNaN(parsed) ? val : parsed
+    }
+    return val
+  }, z.number().int().positive(`${label} must be positive`))
+
 const resolvePaymentStatus = ({
   saleChannel,
   paymentType,
@@ -40,13 +58,19 @@ const createSaleSchema = z.object({
   items: z.array(z.object({
     product_id: z.string().min(1, 'Product is required'),
     variant_id: z.string().optional(),
-    quantity: z.number().int().positive('Quantity must be positive'),
-    price: z.number().positive('Price must be positive')
+    quantity: integer('Quantity'),
+    price: numeric('Price')
   })).min(1, 'At least one item is required'),
   payment_type: z.enum(['CASH', 'CARD', 'MOBILE_PAY']).default('CASH'),
   payment_status: z.enum(['PAID', 'NOT_PAID', 'CASH_ON_DELIVERY']).optional(),
   sale_channel: z.enum(['IN_STORE', 'ONLINE']).default('IN_STORE'),
-  discount: z.number().min(0).default(0)
+  discount: z.preprocess((val) => {
+    if (typeof val === 'string') {
+      const parsed = parseFloat(val)
+      return isNaN(parsed) ? val : parsed
+    }
+    return val
+  }, z.number().min(0, 'Discount must be non-negative')).default(0)
 })
 
 // GET /api/sales - List all sales

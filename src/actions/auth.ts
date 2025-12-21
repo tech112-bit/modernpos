@@ -1,4 +1,4 @@
-import { ApiError, apiRequest, apiRequestVoid } from '@/actions/http'
+import { ApiError, apiRequest, apiRequestJson, apiRequestVoid } from '@/actions/http'
 import { type AuthUser } from '@/types/auth'
 
 type MeResponse = {
@@ -25,12 +25,12 @@ type LoginResponse = {
 
 export async function login(email: string, password: string): Promise<AuthUser | null> {
   try {
-    const data = await apiRequest<LoginResponse>('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-      credentials: 'include'
-    })
+    const data = await apiRequestJson<LoginResponse>(
+      '/api/auth/login',
+      'POST',
+      { email, password },
+      { credentials: 'include' }
+    )
 
     return data.user ?? null
   } catch (error) {

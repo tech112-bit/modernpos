@@ -12,6 +12,7 @@ import { useSmartDataFetching, useDeleteConfirmation, useSearch } from '@/hooks'
 import ProductImport from '@/components/ProductImport'
 import { type ProductListItem, type ProductsApiResponse } from '@/types/product'
 import { deleteProduct, listProducts } from '@/actions/products'
+import { downloadCsvTemplate, productImportTemplateCsv } from '@/lib/import-templates'
 import { getErrorMessage } from '@/actions/http'
 import { 
   PlusIcon, 
@@ -20,7 +21,8 @@ import {
   MagnifyingGlassIcon,
   FunnelIcon,
   TagIcon,
-  CloudArrowUpIcon
+  CloudArrowUpIcon,
+  DocumentArrowDownIcon
 } from '@heroicons/react/24/outline'
 
 export default function ProductsPage() {
@@ -71,6 +73,10 @@ export default function ProductsPage() {
 
   // Use the new delete confirmation hook
   const { confirmDelete } = useDeleteConfirmation()
+
+  const handleDownloadTemplate = () => {
+    downloadCsvTemplate('product-import-template.csv', productImportTemplateCsv)
+  }
 
   const handleDeleteProduct = async (productId: string) => {
     confirmDelete(
@@ -146,6 +152,13 @@ export default function ProductsPage() {
           >
             <CloudArrowUpIcon className="h-3.5 w-3.5 xs:h-4 xs:w-4 md:h-5 md:w-5 mr-1 xs:mr-1.5 md:mr-2 lg:mr-3" />
             Bulk Import
+          </button>
+          <button
+            onClick={handleDownloadTemplate}
+            className="inline-flex items-center justify-center px-2.5 xs:px-3 md:px-4 lg:px-6 py-1.5 xs:py-2 md:py-2.5 lg:py-3 border border-gray-300 rounded-md shadow-sm text-xs xs:text-sm md:text-base font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <DocumentArrowDownIcon className="h-3.5 w-3.5 xs:h-4 xs:w-4 md:h-5 md:w-5 mr-1 xs:mr-1.5 md:mr-2 lg:mr-3" />
+            Download Template
           </button>
           <Link
             href="/dashboard/categories"

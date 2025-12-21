@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useNotifications } from '@/contexts/NotificationContext'
 import { importCategories } from '@/actions/categories'
 import { getErrorMessage } from '@/actions/http'
+import { downloadCsvTemplate, categoryImportTemplateCsv } from '@/lib/import-templates'
 import { 
   CloudArrowUpIcon, 
   DocumentArrowDownIcon,
@@ -61,20 +62,7 @@ export default function CategoryImport() {
   }
 
   const downloadTemplate = () => {
-    const csvContent = `name,description
-"Electronics","Electronic devices and accessories"
-"Smartphones","Mobile phones and related accessories"
-"Laptops","Portable computers and accessories"
-"Tablets","Tablet devices and accessories"
-"Audio","Audio equipment and accessories"`
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'categories-import-template.csv'
-    a.click()
-    window.URL.revokeObjectURL(url)
+    downloadCsvTemplate('categories-import-template.csv', categoryImportTemplateCsv)
   }
 
   const clearFile = () => {

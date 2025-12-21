@@ -40,7 +40,7 @@ export interface SecurityConfig {
  */
 export function getSecurityConfig(): SecurityConfig {
   const isProduction = process.env.NODE_ENV === 'production'
-  const isLocalhost = process.env.NODE_ENV === 'development' && process.env.LOCALHOST_HTTPS !== 'true'
+  const isLocalhostHttps = process.env.LOCALHOST_HTTPS === 'true'
 
   return {
     jwt: {
@@ -50,7 +50,7 @@ export function getSecurityConfig(): SecurityConfig {
     },
     cookies: {
       httpOnly: true,
-      secure: isProduction || isLocalhost ? false : true,
+      secure: isProduction || isLocalhostHttps,
       sameSite: 'strict',
       maxAge: parseInt(process.env.COOKIE_MAX_AGE || '86400'), // 24 hours in seconds
       path: '/',

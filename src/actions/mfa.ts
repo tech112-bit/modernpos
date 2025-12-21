@@ -1,4 +1,4 @@
-import { apiRequest } from '@/actions/http'
+import { apiRequest, apiRequestJson } from '@/actions/http'
 import { type MfaState } from '@/types/mfa'
 
 export async function getMfaStatus(): Promise<MfaState> {
@@ -14,11 +14,7 @@ export async function disableMfa(): Promise<void> {
 }
 
 export async function verifyMfa(code: string): Promise<void> {
-  await apiRequest<void>('/api/auth/mfa/verify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code })
-  })
+  await apiRequestJson<void>('/api/auth/mfa/verify', 'POST', { code })
 }
 
 export async function generateBackupCodes(): Promise<{ backupCodes: string[] }> {

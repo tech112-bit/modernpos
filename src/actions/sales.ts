@@ -1,4 +1,4 @@
-import { apiRequest, apiRequestVoid } from '@/actions/http'
+import { apiRequest, apiRequestJson, apiRequestVoid } from '@/actions/http'
 import { type Sale, type SaleCustomerSummary, type SaleProduct, type SalesApiResponse } from '@/types/sale'
 
 type ProductsForSaleResponse = {
@@ -25,11 +25,7 @@ export async function listSaleCustomers(): Promise<SaleCustomerSummary[]> {
 }
 
 export async function createSale(payload: unknown): Promise<unknown> {
-  return apiRequest<unknown>('/api/sales', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  })
+  return apiRequestJson<unknown>('/api/sales', 'POST', payload)
 }
 
 export async function getSale(saleId: string): Promise<Sale> {
@@ -44,9 +40,5 @@ export async function updateSalePaymentStatus(
   saleId: string,
   payment_status: 'PAID' | 'NOT_PAID' | 'CASH_ON_DELIVERY'
 ): Promise<Sale> {
-  return apiRequest<Sale>(`/api/sales/${saleId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ payment_status })
-  })
+  return apiRequestJson<Sale>(`/api/sales/${saleId}`, 'PATCH', { payment_status })
 }

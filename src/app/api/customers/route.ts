@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
-import { extractTokenFromCookies } from '@/lib/secure-cookies'
+import { authenticateRequest, buildUserWhereClause } from '@/lib/api-helpers'
 
 // Validation schema for creating customers
 const createCustomerSchema = z.object({
@@ -23,50 +23,28 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const skip = (page - 1) * limit
 
-    // Get user info from token
-    const authToken = extractTokenFromCookies(request)
-    if (!authToken) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      )
+    const authResult = await authenticateRequest(request)
+    if (!authResult.success) {
+      return authResult.response as NextResponse
     }
 
-    // Import and verify token
-    const { verifyToken } = await import('@/lib/auth')
-    const decoded = await verifyToken(authToken)
-    if (!decoded) {
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      )
-    }
-
-    const isAdmin = decoded.role === 'ADMIN'
-    const userId = decoded.userId
-
-    // Build where clause
-    const where: {
+    const baseWhere: {
       OR?: Array<{
         name?: { contains: string; mode: 'insensitive' }
         email?: { contains: string; mode: 'insensitive' }
         phone?: { contains: string; mode: 'insensitive' }
       }>
-      user_id?: string
     } = {}
     
     if (search) {
-      where.OR = [
+      baseWhere.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search, mode: 'insensitive' } }
       ]
     }
 
-    // For non-admin users, filter by user_id
-    if (!isAdmin) {
-      where.user_id = userId
-    }
+    const where = buildUserWhereClause(authResult.user!, baseWhere)
 
     // Get customers with sales information
     const customers = await prisma.customers.findMany({
@@ -78,7 +56,7 @@ export async function GET(request: NextRequest) {
           }
         }
       },
-             orderBy: { created_at: 'desc' },
+      orderBy: { created_at: 'desc' },
       skip,
       take: limit
     })
@@ -107,26 +85,12 @@ export async function GET(request: NextRequest) {
 // POST /api/customers - Create new customer
 export async function POST(request: NextRequest) {
   try {
-    // Get user info from token first
-    const authToken = extractTokenFromCookies(request)
-    if (!authToken) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      )
+    const authResult = await authenticateRequest(request)
+    if (!authResult.success) {
+      return authResult.response as NextResponse
     }
 
-    // Import and verify token
-    const { verifyToken } = await import('@/lib/auth')
-    const decoded = await verifyToken(authToken)
-    if (!decoded) {
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      )
-    }
-
-    const userId = decoded.userId
+    const userId = authResult.user!.userId
     const body = await request.json()
     
     // Validate input

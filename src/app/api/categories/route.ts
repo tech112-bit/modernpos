@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
-import { extractTokenFromCookies } from '@/lib/secure-cookies'
+import { authenticateRequest, buildUserWhereClause } from '@/lib/api-helpers'
 
 // Validation schema for creating categories
 const createCategorySchema = z.object({
@@ -11,35 +11,13 @@ const createCategorySchema = z.object({
 // GET /api/categories - List all categories
 export async function GET(request: NextRequest) {
   try {
-    // Get user info from token
-    const authToken = extractTokenFromCookies(request)
-    if (!authToken) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      )
+    const authResult = await authenticateRequest(request)
+    if (!authResult.success) {
+      return authResult.response as NextResponse
     }
 
-    // Import and verify token
-    const { verifyToken } = await import('@/lib/auth')
-    const decoded = await verifyToken(authToken)
-    if (!decoded) {
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      )
-    }
-
-    const isAdmin = decoded.role === 'ADMIN'
-    const userId = decoded.userId
-
-    // Build where clause
-    const where: { user_id?: string } = {}
-
-    // For non-admin users, filter by user_id
-    if (!isAdmin) {
-      where.user_id = userId
-    }
+    const user = authResult.user!
+    const where = buildUserWhereClause(user)
 
     const categories = await prisma.categories.findMany({
       where,
@@ -66,26 +44,12 @@ export async function GET(request: NextRequest) {
 // POST /api/categories - Create new category
 export async function POST(request: NextRequest) {
   try {
-    // Get user info from token first
-    const authToken = extractTokenFromCookies(request)
-    if (!authToken) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      )
+    const authResult = await authenticateRequest(request)
+    if (!authResult.success) {
+      return authResult.response as NextResponse
     }
 
-    // Import and verify token
-    const { verifyToken } = await import('@/lib/auth')
-    const decoded = await verifyToken(authToken)
-    if (!decoded) {
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      )
-    }
-
-    const userId = decoded.userId
+    const userId = authResult.user!.userId
     const body = await request.json()
     
     // Validate input

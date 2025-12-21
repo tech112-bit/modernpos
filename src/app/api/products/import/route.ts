@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { parse } from 'csv-parse'
 import { extractTokenFromCookies } from '@/lib/secure-cookies'
+import { generateBarcodeEan13, generateSku } from '@/lib/product-identifiers'
 
 // POST /api/products/import - Import products from CSV
 export async function POST(request: NextRequest) {
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
     for (const record of records) {
       try {
         // Validate required fields
-        if (!record.name || !record.sku || !record.price || !record.category_id) {
+        if (!record.name || !record.price || !record.category_name) {
           errors.push(`Row ${successCount + errorCount + 1}: Missing required fields`)
           errorCount++
           continue
@@ -92,10 +93,13 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Find category by ID
+        // Find category by name
         const category = await prisma.categories.findFirst({
           where: { 
-            id: record.category_id,
+            name: {
+              equals: record.category_name,
+              mode: 'insensitive'
+            },
             user_id: userId
           }
         })
@@ -106,13 +110,28 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Check if product already exists
-        const existingProduct = await prisma.products.findFirst({
-          where: { 
-            sku: record.sku,
-            user_id: userId
-          }
-        })
+        const providedSku = typeof record.sku === 'string' ? record.sku.trim() : ''
+        let sku = providedSku || generateSku(record.name)
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const existingSku = await prisma.products.findFirst({
+            where: {
+              sku,
+              user_id: userId
+            }
+          })
+          if (!existingSku) break
+          sku = generateSku(record.name)
+        }
+
+        // Check if product already exists when SKU is provided
+        const existingProduct = providedSku
+          ? await prisma.products.findFirst({
+              where: { 
+                sku: providedSku,
+                user_id: userId
+              }
+            })
+          : null
 
         if (existingProduct) {
           // Update existing product
@@ -121,7 +140,6 @@ export async function POST(request: NextRequest) {
             data: {
               name: record.name,
               description: record.description || null,
-              barcode: record.barcode || null,
               price: price,
               cost: cost,
               stock: stock,
@@ -129,14 +147,16 @@ export async function POST(request: NextRequest) {
             }
           })
         } else {
+          const barcode = generateBarcodeEan13()
+
           // Create new product
           await prisma.products.create({
             data: {
               id: `prod_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               name: record.name,
               description: record.description || null,
-              sku: record.sku,
-              barcode: record.barcode || null,
+              sku,
+              barcode,
               price: price,
               cost: cost,
               stock: stock,

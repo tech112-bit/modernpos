@@ -55,6 +55,37 @@ export async function apiRequestVoid(url: string, init?: RequestInit): Promise<v
   await apiRequest<unknown>(url, init)
 }
 
+export async function apiRequestJson<T>(
+  url: string,
+  method: string,
+  body?: unknown,
+  init?: RequestInit
+): Promise<T> {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(init?.headers ?? {})
+  }
+
+  return apiRequest<T>(url, {
+    ...init,
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body)
+  })
+}
+
+export async function apiRequestForm<T>(
+  url: string,
+  formData: FormData,
+  init?: RequestInit
+): Promise<T> {
+  return apiRequest<T>(url, {
+    ...init,
+    method: init?.method ?? 'POST',
+    body: formData
+  })
+}
+
 export function getErrorMessage(error: unknown, fallback: string = 'Request failed'): string {
   if (error instanceof ApiError) return error.message
   if (error instanceof Error) return error.message || fallback
