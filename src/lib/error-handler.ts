@@ -23,6 +23,13 @@ export class ProductionErrorHandler {
           { status: 503 }
         )
       }
+
+      if (error.message.includes('prepared statement')) {
+        return NextResponse.json(
+          { error: 'Database connection is temporarily unavailable. Please try again shortly.' },
+          { status: 503 }
+        )
+      }
       
       // Handle other Prisma errors
       if (error.message.includes('Unique constraint') || error.message.includes('Foreign key constraint')) {
@@ -40,8 +47,8 @@ export class ProductionErrorHandler {
         )
       }
       
-      // Handle validation errors
-      if (error.message.includes('Validation') || error.message.includes('Invalid')) {
+      // Handle validation errors (avoid matching Prisma "Invalid invocation" errors)
+      if (error instanceof Prisma.PrismaClientValidationError || error.message.includes('Validation')) {
         return NextResponse.json(
           { error: 'Invalid data provided. Please check your input.' },
           { status: 400 }
