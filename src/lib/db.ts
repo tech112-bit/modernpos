@@ -1,4 +1,15 @@
 import { PrismaClient, Prisma } from '@prisma/client'
+import { loadEnvConfig } from '@next/env'
+
+// Ensure environment variables are loaded when running through a custom server
+// or standalone build where Next.js might not have loaded .env files yet.
+const projectDir = process.cwd()
+const isDevEnv = process.env.NODE_ENV !== 'production'
+loadEnvConfig(projectDir, isDevEnv)
+
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is not set. Please define it in your environment or .env file.')
+}
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
